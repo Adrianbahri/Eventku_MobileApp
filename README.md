@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # eventku
 
 A new Flutter project.
@@ -14,3 +15,7 @@ A few resources to get you started if this is your first Flutter project:
 For help getting started with Flutter development, view the
 [online documentation](https://docs.flutter.dev/), which offers tutorials,
 samples, guidance on mobile development, and a full API reference.
+=======
+# eventkuapp
+eventku adalah aplikasi mobile untuk mencatat event event yang terjadi di kampus kamu
+>>>>>>> 9f9e5917961bfae8a57d4c0aca08eb02cdebd8a0
