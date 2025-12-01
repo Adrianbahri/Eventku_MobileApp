@@ -1,0 +1,89 @@
+## 🔥 .gitignore STANDAR UNTUK PROYEK FLUTTER
+
+# ----------------------------------------------------------------------
+# 1. FILE & DIREKTORI YANG DIBUAT OTOMATIS OLEH FLUTTER/DART/PUB
+# ----------------------------------------------------------------------
+
+# Hasil kompilasi dan build
+/build/
+.dart_tool/
+.packages
+.flutter-plugins
+.flutter-plugins-dependencies
+.last_build_id
+/coverage/
+
+# Output kompilasi Dart
+*.aot
+*.o
+*.so
+
+# Cache dan repositori paket
+.pub-cache/
+.pub/
+/pubspec.lock
+
+# Dokumentasi yang dihasilkan secara otomatis
+**/doc/api/
+
+# File registrasi plugin (sering digenerate ulang)
+/generated_plugin_registrant.dart
+
+# ----------------------------------------------------------------------
+# 2. FILE DAN DIREKTORI SPESIFIK PLATFORM (GENERATED)
+# ----------------------------------------------------------------------
+
+# Android
+/android/build/
+/android/.gradle
+/android/app/debug/
+/android/app/profile/
+/android/app/release/
+
+# iOS/macOS
+/ios/.symlinks/
+/ios/Flutter/Generated.xcconfig
+/ios/Flutter/flutter_export_environment.sh
+/ios/Pods/
+/ios/.generated-icons/
+/macos/build/
+
+# Linux
+/linux/build/
+
+# Windows
+/windows/build/
+
+# Web
+/web/
+
+# ----------------------------------------------------------------------
+# 3. FILE SENSITIF & KONFIGURASI LOKAL/IDE
+# ----------------------------------------------------------------------
+
+# Konfigurasi IDE
+.idea/
+.vscode/
+
+# Properti Android lokal (berisi jalur SDK, dll.)
+android/local.properties
+
+# File Kunci Android (JANGAN PERNAH DI COMMIT!)
+android/key.properties
+
+# File macOS
+.DS_Store
+
+# File Windows
+Thumbs.db
+
+# File IDE atau editor lain
+*.iml
+*.ipr
+*.iws
+*.swp
+.atom/
+.svn/
+.history
+.buildlog/
+migrate_working_dir/

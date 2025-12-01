@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "802401034598",
+    "project_id": "mobile-proyek-c",
+    "storage_bucket": "mobile-proyek-c.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:802401034598:android:3579bf0545e193abf468a7",
+        "android_client_info": {
+          "package_name": "com.example.eventku"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDJICXWJ97c0X3EBt9LPSbx6PsPOcZP3GQ"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
