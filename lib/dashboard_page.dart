@@ -5,6 +5,7 @@ import 'detail_page.dart';
 import 'event_model.dart';
 import 'add_event_page.dart';
 import 'profile_page.dart';
+import 'notification_page.dart';
 
 class AppColors {
   static const primary = Color.fromRGBO(232, 0, 168, 1);
@@ -348,6 +349,11 @@ class _EventCardResponsive extends StatelessWidget {
 }
 
 // --- CUSTOM HEADER (Ikon Profile & Notifikasi) ---
+// File: dashboard_page.dart
+
+// ... (Kode sebelumnya)
+
+// --- CUSTOM HEADER (Ikon Profile & Notifikasi) ---
 class CustomHeader extends StatelessWidget {
   final VoidCallback onEventAdded;
   final TextEditingController searchController; 
@@ -382,9 +388,10 @@ class CustomHeader extends StatelessWidget {
           Image.asset(
             "assets/image/primarylogo.png",
             height: 35, 
+            width: 60, 
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => 
-              const Icon(Icons.calendar_month, color: AppColors.primary, size: 24),
+               const Icon(Icons.calendar_month, color: AppColors.primary, size: 24),
           ),
           const SizedBox(width: 12),
           
@@ -393,7 +400,7 @@ class CustomHeader extends StatelessWidget {
             child: SizedBox(
               height: 40,
               child: TextField(
-                controller: searchController, 
+                controller: searchController, // Menggunakan controller dari parent
                 decoration: InputDecoration(
                   hintText: "Search Event atau Lokasi...", 
                   hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
@@ -424,11 +431,13 @@ class CustomHeader extends StatelessWidget {
           ),
           const SizedBox(width: 12),
           
-          // 4. IKON NOTIFICATION
+          // 4. IKON NOTIFICATION (Navigasi ke NotificationPage)
           InkWell(
             onTap: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text("Notifikasi Page akan dikembangkan!")),
+              // ✅ NAVIGASI KE NOTIFICATION PAGE
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const NotificationPage()),
               );
             },
             child: const Icon(Icons.notifications_none, color: AppColors.textDark, size: 28),
