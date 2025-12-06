@@ -6,9 +6,10 @@ class EventModel {
   final String date;
   final String location;
   final String description;
-  final String imagePath; // Berisi URL Gambar dari Firebase Storage
+  final String imagePath;
   final String userId;
-  final Timestamp? timestamp; // Digunakan untuk sorting, diisi oleh Firestore
+  // Field opsional untuk sorting
+  final Timestamp? timestamp; 
 
   EventModel({
     required this.id,
@@ -18,12 +19,10 @@ class EventModel {
     required this.description,
     required this.imagePath,
     required this.userId,
-    this.timestamp,
+    this.timestamp, // Dibuat opsional karena bisa null saat membaca dari toMap()
   });
 
-  // 🛠️ Metode untuk Mengirim Data ke Firestore (Digunakan untuk data baru)
-  // Perhatikan: Kita TIDAK memasukkan 'id' di sini karena itu adalah ID Dokumen.
-  // Field 'timestamp' akan ditambahkan secara terpisah saat memanggil .add()
+  // 🛠️ Metode untuk Mengirim Data ke Firestore (Create/Update)
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -32,25 +31,24 @@ class EventModel {
       'description': description,
       'imagePath': imagePath,
       'userId': userId,
-      // Kita tidak perlu menyertakan nilai timestamp di toMap() ini.
-      // Kita akan menambahkannya secara terpisah di AddEventPage agar Firestore
-      // dapat mengisi FieldValue.serverTimestamp() dengan benar.
+      // Gunakan serverTimestamp() untuk mencatat waktu yang akurat
+      'timestamp': FieldValue.serverTimestamp(), 
     };
   }
 
-  // 🔎 Metode untuk Mengambil Data dari Firestore
+  // 📥 Factory untuk Menerima Data dari Firestore (Read)
   factory EventModel.fromMap(Map<String, dynamic> map, String documentId) {
+    // Pastikan casting aman dan berikan nilai default jika null
     return EventModel(
       id: documentId,
       title: map['title'] ?? '',
       date: map['date'] ?? '',
       location: map['location'] ?? '',
       description: map['description'] ?? '',
-      // Pastikan key 'imagePath' sudah benar
       imagePath: map['imagePath'] ?? '',
       userId: map['userId'] ?? '',
-      // Ambil timestamp dari Firestore.
-      timestamp: map['timestamp'] as Timestamp?,
+      // Ambil timestamp dari Firestore. Jika tidak ada, biarkan null.
+      timestamp: map['timestamp'] as Timestamp?, 
     );
   }
 }
