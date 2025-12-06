@@ -19,6 +19,32 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
+  // 1. TAMBAHKAN CONTROLLER UNTUK PENCARIAN
+  final TextEditingController _searchController = TextEditingController();
+  // State untuk menyimpan query pencarian yang aktif
+  String _searchQuery = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // 2. LISTEN KE PERUBAHAN INPUT SEARCH
+    _searchController.addListener(_onSearchChanged);
+  }
+
+  @override
+  void dispose() {
+    _searchController.removeListener(_onSearchChanged);
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  void _onSearchChanged() {
+    // Dipanggil setiap kali teks di kolom pencarian berubah
+    setState(() {
+      _searchQuery = _searchController.text.toLowerCase();
+    });
+  }
+
   // Callback sederhana untuk refresh (jika diperlukan)
   void refreshUI() {
     setState(() {});
@@ -34,8 +60,11 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER
-            CustomHeader(onEventAdded: refreshUI),
+            // HEADER - KIRIMKAN CONTROLLER KE SINI
+            CustomHeader(
+              onEventAdded: refreshUI,
+              searchController: _searchController, // ✅ DIKIRIM KE HEADER
+            ),
 
             Expanded(
               child: Column(
@@ -73,6 +102,7 @@ class _HomePageState extends State<HomePage> {
 
   // Widget untuk membangun StreamBuilder dan PageView
   Widget _buildResponsiveCarousel() {
+    // 3. LOGIKA FILTER DATA DI SINI
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('events')
@@ -106,18 +136,39 @@ class _HomePageState extends State<HomePage> {
         }
 
         // Konversi Data dari Firestore ke List<EventModel>
-        final List<EventModel> dataEvents = snapshot.data!.docs.map((doc) {
+        final List<EventModel> allEvents = snapshot.data!.docs.map((doc) {
           // Mengambil data dan ID dokumen
           return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
         }).toList();
 
+        // 4. FILTER DATA BERDASARKAN QUERY PENCARIAN (Client-Side Filtering)
+        final filteredEvents = allEvents.where((event) {
+          final titleLower = event.title.toLowerCase();
+          final locationLower = event.location.toLowerCase();
+          
+          return _searchQuery.isEmpty || 
+                 titleLower.contains(_searchQuery) || // Filter Judul
+                 locationLower.contains(_searchQuery); // Filter Lokasi
+        }).toList();
+
+
+        if (filteredEvents.isEmpty) {
+          return Center(
+            child: Text(
+              "Tidak ada event yang cocok dengan '$_searchQuery'.",
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: AppColors.textDark),
+            ),
+          );
+        }
+
         // Tampilkan data menggunakan PageView.builder
         return PageView.builder(
           controller: PageController(viewportFraction: 0.75),
-          itemCount: dataEvents.length,
+          itemCount: filteredEvents.length, // ✅ Menggunakan data yang sudah difilter
           physics: const BouncingScrollPhysics(),
           itemBuilder: (context, index) {
-            final EventModel event = dataEvents[index];
+            final EventModel event = filteredEvents[index]; // ✅ Menggunakan data yang sudah difilter
 
             return GestureDetector(
               onTap: () {
@@ -300,7 +351,14 @@ class _EventCardResponsive extends StatelessWidget {
 // --- HEADER ---
 class CustomHeader extends StatelessWidget {
   final VoidCallback onEventAdded;
-  const CustomHeader({super.key, required this.onEventAdded});
+  // 5. TAMBAHKAN CONTROLLER DI CUSTOM HEADER
+  final TextEditingController searchController; 
+
+  const CustomHeader({
+    super.key, 
+    required this.onEventAdded,
+    required this.searchController, // ✅ PERUBAHAN
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -334,8 +392,10 @@ class CustomHeader extends StatelessWidget {
           const SizedBox(width: 12),
           Expanded(
             child: TextField(
+              // 6. PASANG CONTROLLER KE TEXTFIELD
+              controller: searchController, 
               decoration: InputDecoration(
-                hintText: "Search...",
+                hintText: "Search Event atau Lokasi...", // ✅ Pesan yang lebih baik
                 hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
                 prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 22),
                 filled: true,
