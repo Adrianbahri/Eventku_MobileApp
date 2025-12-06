@@ -10,6 +10,7 @@ class AppColors {
   static const primary = Color.fromRGBO(232, 0, 168, 1);
   static const background = Color(0xFFF5F5F5);
   static const textDark = Colors.black87;
+  static const tertiary = Color(0xFFC70039); // Warna Tambahan untuk Pembeda
 }
 
 class HomePage extends StatefulWidget {
@@ -60,10 +61,10 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER - KIRIMKAN CONTROLLER KE SINI
+            // HEADER (Tidak Berubah dari versi sebelumnya, hanya Header Baru)
             CustomHeader(
               onEventAdded: refreshUI,
-              searchController: _searchController, // ✅ DIKIRIM KE HEADER
+              searchController: _searchController,
             ),
 
             Expanded(
@@ -95,8 +96,8 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      // BOTTOM NAVIGATION BAR
-      bottomNavigationBar: const CustomFloatingNavBar(),
+      // FOOTER BARU DENGAN LAYOUT YANG DIUBAH
+      bottomNavigationBar: CustomFloatingNavBar(onAddEvent: refreshUI),
     );
   }
 
@@ -106,7 +107,7 @@ class _HomePageState extends State<HomePage> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('events')
-          // ✅ PERBAIKAN: Sorting berdasarkan timestamp terbaru
+          // ✅ Sorting berdasarkan timestamp terbaru
           .orderBy('timestamp', descending: true)
           .snapshots(),
 
@@ -137,7 +138,6 @@ class _HomePageState extends State<HomePage> {
 
         // Konversi Data dari Firestore ke List<EventModel>
         final List<EventModel> allEvents = snapshot.data!.docs.map((doc) {
-          // Mengambil data dan ID dokumen
           return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
         }).toList();
 
@@ -165,10 +165,10 @@ class _HomePageState extends State<HomePage> {
         // Tampilkan data menggunakan PageView.builder
         return PageView.builder(
           controller: PageController(viewportFraction: 0.75),
-          itemCount: filteredEvents.length, // ✅ Menggunakan data yang sudah difilter
+          itemCount: filteredEvents.length,
           physics: const BouncingScrollPhysics(),
           itemBuilder: (context, index) {
-            final EventModel event = filteredEvents[index]; // ✅ Menggunakan data yang sudah difilter
+            final EventModel event = filteredEvents[index];
 
             return GestureDetector(
               onTap: () {
@@ -205,7 +205,7 @@ class _HomePageState extends State<HomePage> {
 //          WIDGET KOMPONEN TAMBAHAN
 // -------------------------------------------------------------
 
-// --- KARTU EVENT RESPONSIF (Disesuaikan untuk URL Firebase Storage) ---
+// --- KARTU EVENT RESPONSIF ---
 class _EventCardResponsive extends StatelessWidget {
   final String title;
   final String date;
@@ -263,10 +263,8 @@ class _EventCardResponsive extends StatelessWidget {
                       },
                       // Error Builder dengan Debugging
                       errorBuilder: (context, error, stackTrace) {
-                        // ---------------------------------------------
                         debugPrint("❌ GAGAL LOAD GAMBAR DARI URL: $imagePath");
                         debugPrint("❌ ERROR DETAIL: $error");
-                        // ---------------------------------------------
                         
                         return Container(
                           color: Colors.grey[200],
@@ -277,7 +275,7 @@ class _EventCardResponsive extends StatelessWidget {
                               const Icon(Icons.shield_moon_outlined, color: Colors.grey, size: 30),
                               const SizedBox(height: 4),
                               Text(
-                                "Gagal Memuat (Cek Izin Storage)", // Pesan yang lebih spesifik
+                                "Gagal Memuat (Cek Izin Storage)",
                                 style: TextStyle(color: Colors.grey[600], fontSize: 10),
                               )
                             ],
@@ -348,16 +346,16 @@ class _EventCardResponsive extends StatelessWidget {
     );
   }
 }
-// --- HEADER ---
+
+// --- CUSTOM HEADER (Ikon Profile & Notifikasi) ---
 class CustomHeader extends StatelessWidget {
   final VoidCallback onEventAdded;
-  // 5. TAMBAHKAN CONTROLLER DI CUSTOM HEADER
   final TextEditingController searchController; 
 
   const CustomHeader({
     super.key, 
     required this.onEventAdded,
-    required this.searchController, // ✅ PERUBAHAN
+    required this.searchController,
   });
 
   @override
@@ -380,56 +378,60 @@ class CustomHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Logo (Pastikan aset ada)
+          // 1. LOGO
           Image.asset(
             "assets/image/primarylogo.png",
-            height: 45,
-            width: 80,
+            height: 35, 
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => 
-               const Icon(Icons.calendar_month, color: AppColors.primary, size: 30), // ✅ Fallback icon yang lebih baik
+              const Icon(Icons.calendar_month, color: AppColors.primary, size: 24),
           ),
           const SizedBox(width: 12),
+          
+          // 2. SEARCH BAR
           Expanded(
-            child: TextField(
-              // 6. PASANG CONTROLLER KE TEXTFIELD
-              controller: searchController, 
-              decoration: InputDecoration(
-                hintText: "Search Event atau Lokasi...", // ✅ Pesan yang lebih baik
-                hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
-                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 22),
-                filled: true,
-                fillColor: Colors.grey[100],
-                isDense: true,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(15),
-                  borderSide: BorderSide.none,
+            child: SizedBox(
+              height: 40,
+              child: TextField(
+                controller: searchController, 
+                decoration: InputDecoration(
+                  hintText: "Search Event atau Lokasi...", 
+                  hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
+                  prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                  filled: true,
+                  fillColor: Colors.grey[100],
+                  isDense: true,
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(10),
+                    borderSide: BorderSide.none,
+                  ),
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
                 ),
-                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
           const SizedBox(width: 12),
 
-          // TOMBOL ADD
+          // 3. IKON PROFILE (Navigasi ke ProfilePage)
           InkWell(
-            onTap: () async {
-              // Navigasi ke AddEventPage yang sudah Anda buat
-              await Navigator.push(
+            onTap: () {
+              Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const AddEventPage()),
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
-              onEventAdded(); // Refresh UI setelah kembali
             },
-            child: Container(
-              height: 40,
-              width: 40,
-              decoration: const BoxDecoration(
-                color: AppColors.primary,
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(Icons.add, color: Colors.white, size: 24),
-            ),
+            child: const Icon(Icons.person_outline, color: AppColors.textDark, size: 28),
+          ),
+          const SizedBox(width: 12),
+          
+          // 4. IKON NOTIFICATION
+          InkWell(
+            onTap: () {
+              ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("Notifikasi Page akan dikembangkan!")),
+              );
+            },
+            child: const Icon(Icons.notifications_none, color: AppColors.textDark, size: 28),
           ),
         ],
       ),
@@ -437,18 +439,45 @@ class CustomHeader extends StatelessWidget {
   }
 }
 
-// --- FOOTER / NAVBAR ---
 class CustomFloatingNavBar extends StatelessWidget {
-  const CustomFloatingNavBar({super.key});
+  final VoidCallback onAddEvent;
+
+  const CustomFloatingNavBar({super.key, required this.onAddEvent});
+
+  // Helper untuk tombol navigasi kecil
+  Widget _buildNavIcon({required IconData icon, required bool isActive, required VoidCallback onTap}) {
+    return InkWell(
+      onTap: onTap,
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            icon, 
+            color: isActive ? AppColors.primary : Colors.grey[600], 
+            size: 26
+          ),
+          const SizedBox(height: 4),
+          // Tambahkan indikator aktif jika perlu
+          if (isActive) 
+            Container(
+              height: 4, 
+              width: 4, 
+              decoration: const BoxDecoration(
+                color: AppColors.primary, 
+                shape: BoxShape.circle
+              )
+            )
+        ],
+      ),
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    final user = FirebaseAuth.instance.currentUser;
-    final userName = user?.displayName?.split(' ').first ?? 'User';
-
     return Container(
-      margin: const EdgeInsets.only(left: 24, right: 24, bottom: 30),
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 16),
+      margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
+      // ✅ Padding horizontal dipertahankan agar ada jarak dari tepi
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(50),
@@ -461,38 +490,84 @@ class CustomFloatingNavBar extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
+        // ✅ Ganti mainAxisAlignment menjadi spaceEvenly agar pembagian ruang lebih proporsional
+        // Kita kembali menggunakan spaceBetween dan mengatur jarak internal secara manual di Row ikon.
+        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
         children: [
+          // 1. TOMBOL ADD EVENT (KIRI)
           InkWell(
-            onTap: () {
-              Navigator.push(
+            onTap: () async {
+              await Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => const ProfilePage()),
+                MaterialPageRoute(builder: (context) => const AddEventPage()),
               );
+              onAddEvent(); // Refresh UI setelah kembali
             },
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              decoration: BoxDecoration(
+                color: AppColors.primary,
+                borderRadius: BorderRadius.circular(30),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withOpacity(0.4),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
+              ),
+              child: const Row(
+                children: [
+                  Icon(Icons.add, color: Colors.white, size: 24),
+                  SizedBox(width: 8),
+                  Text(
+                    "Add Event",
+                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ],
+              ),
+            ),
+          ),
+
+          // 2. KELOMPOK 3 IKON NAVIGASI (KANAN)
+          // ✅ Menggunakan Row dengan MainAxisAlignment.spaceAround agar ikon memiliki jarak internal yang baik,
+          // dan Row ini akan terdorong ke kanan oleh spaceBetween di Row parent.
+          // Kita atur lebar Row ini secara manual untuk memastikan ikon tidak terlalu mepet.
+          SizedBox(
+            width: 160, // Lebar yang diatur agar ikon terdistribusi dengan baik
             child: Row(
+              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
-                CircleAvatar(
-                  radius: 14,
-                  backgroundColor: AppColors.primary.withOpacity(0.1),
-                  child: const Icon(Icons.person, size: 16, color: AppColors.primary),
+                // BERANDA (Home) - Ikon aktif
+                _buildNavIcon(
+                  icon: Icons.home_filled, 
+                  isActive: true, 
+                  onTap: () {} 
                 ),
-                const SizedBox(width: 10),
-                Text(
-                  "Halo, $userName!",
-                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
+                
+                // FAVORIT (Favorite)
+                _buildNavIcon(
+                  icon: Icons.favorite_border, 
+                  isActive: false, 
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Navigasi ke Halaman Favorit")),
+                    );
+                  }
+                ),
+
+                // TIKET (Tickets)
+                _buildNavIcon(
+                  icon: Icons.confirmation_number_outlined, 
+                  isActive: false, 
+                  onTap: () {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text("Navigasi ke Halaman Tiket/Daftar Event")),
+                    );
+                  }
                 ),
               ],
             ),
-          ),
-          Row(
-            children: [
-              Icon(Icons.favorite_border, color: Colors.grey[600]),
-              const SizedBox(width: 16),
-              Icon(Icons.confirmation_number_outlined, color: Colors.grey[600]),
-              const SizedBox(width: 16),
-              Icon(Icons.settings_outlined, color: Colors.grey[600]),
-            ],
           ),
         ],
       ),
