@@ -8,6 +8,7 @@ class EventModel {
   final String description;
   final String imagePath;
   final String userId;
+  final String? registrationLink; // 🌟 PROPERTI BARU
   // Field opsional untuk sorting
   final Timestamp? timestamp; 
 
@@ -19,6 +20,7 @@ class EventModel {
     required this.description,
     required this.imagePath,
     required this.userId,
+    this.registrationLink, // 🌟 Diperlukan di konstruktor
     this.timestamp, // Dibuat opsional karena bisa null saat membaca dari toMap()
   });
 
@@ -31,6 +33,7 @@ class EventModel {
       'description': description,
       'imagePath': imagePath,
       'userId': userId,
+      'registrationLink': registrationLink, // 🌟 Tambahkan ke map
       // Gunakan serverTimestamp() untuk mencatat waktu yang akurat
       'timestamp': FieldValue.serverTimestamp(), 
     };
@@ -47,6 +50,7 @@ class EventModel {
       description: map['description'] ?? '',
       imagePath: map['imagePath'] ?? '',
       userId: map['userId'] ?? '',
+      registrationLink: map['registrationLink'] as String?, // 🌟 Ambil link
       // Ambil timestamp dari Firestore. Jika tidak ada, biarkan null.
       timestamp: map['timestamp'] as Timestamp?, 
     );

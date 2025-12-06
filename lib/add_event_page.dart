@@ -4,7 +4,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'event_model.dart';
+import 'event_model.dart'; // Pastikan EventModel Anda memiliki properti registrationLink
 
 class AppColors {
   static const primary = Color.fromRGBO(232, 0, 168, 1);
@@ -23,13 +23,12 @@ class _AddEventPageState extends State<AddEventPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _locController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
+  // 🔥 CONTROLLER BARU UNTUK LINK PENDAFTARAN
+  final TextEditingController _regLinkController = TextEditingController(); 
 
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   
-  // --- UBAHAN PENTING (UNIVERSAL) ---
-  // Kita tidak menggunakan 'File' dari dart:io lagi karena error di Web.
-  // Kita gunakan Uint8List (bytes) yang bisa dibaca oleh Web & Android.
   Uint8List? _imageBytes; 
   String? _imageName; // Menyimpan nama file asli
   bool _isSubmitting = false;
@@ -39,6 +38,7 @@ class _AddEventPageState extends State<AddEventPage> {
     _titleController.dispose();
     _locController.dispose();
     _descController.dispose();
+    _regLinkController.dispose(); // 🔥 JANGAN LUPA DISPOSE
     super.dispose();
   }
 
@@ -53,8 +53,6 @@ class _AddEventPageState extends State<AddEventPage> {
       );
 
       if (picked != null) {
-        // Baca file sebagai Bytes (Data Mentah)
-        // Ini adalah kunci agar kode jalan di Web DAN Android tanpa import dart:io
         final bytes = await picked.readAsBytes();
         
         setState(() {
@@ -67,7 +65,7 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
-  // --- LOGIKA SUBMIT (ALL PLATFORMS) ---
+  // --- LOGIKA SUBMIT (TERMASUK LINK PENDAFTARAN) ---
   void _submitEvent() async {
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
 
@@ -76,6 +74,7 @@ class _AddEventPageState extends State<AddEventPage> {
       return;
     }
 
+    // Validasi sederhana (link pendaftaran opsional)
     if (_titleController.text.isEmpty || _imageBytes == null) {
       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lengkapi data & gambar!")));
       return;
@@ -84,23 +83,22 @@ class _AddEventPageState extends State<AddEventPage> {
     setState(() => _isSubmitting = true);
 
     try {
-      // Buat nama file unik
+      // 1. Upload Gambar ke Firebase Storage
       String fileName = '${currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       Reference storageRef = FirebaseStorage.instance.ref().child('posters/$fileName');
-      
-      // Metadata agar browser mengenali ini sebagai gambar jpeg
       final metadata = SettableMetadata(contentType: 'image/jpeg');
-      
-      // Upload Bytes (Bekerja di Web & Android)
       UploadTask uploadTask = storageRef.putData(_imageBytes!, metadata);
       
       TaskSnapshot snapshot = await uploadTask;
       String imageUrl = await snapshot.ref.getDownloadURL();
 
-      // Format Tanggal
-      final String formattedDateString = "${_selectedDate?.day}-${_selectedDate?.month} ${_selectedTime?.format(context)}";
+      // 2. Format Tanggal
+      final String formattedDateString = 
+        _selectedDate != null && _selectedTime != null 
+          ? "${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year} ${_selectedTime!.format(context)}"
+          : "Tanggal/Waktu Belum Ditentukan";
 
-      // Simpan ke Firestore
+      // 3. Simpan ke Firestore
       final newEvent = EventModel(
         id: '',
         title: _titleController.text,
@@ -109,6 +107,7 @@ class _AddEventPageState extends State<AddEventPage> {
         description: _descController.text,
         imagePath: imageUrl,
         userId: currentUserId,
+        registrationLink: _regLinkController.text.trim(), // 🔥 DATA BARU DISIMPAN
       );
 
       await FirebaseFirestore.instance.collection('events').add(newEvent.toMap());
@@ -141,8 +140,19 @@ class _AddEventPageState extends State<AddEventPage> {
   // --- HELPER WIDGETS ---
   Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)));
   
-  Widget _buildTextField({required TextEditingController controller, required String hint, required IconData icon, int maxLines = 1}) {
-    return TextField(controller: controller, maxLines: maxLines, decoration: InputDecoration(prefixIcon: Icon(icon), hintText: hint, filled: true, fillColor: AppColors.inputBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15))));
+  Widget _buildTextField({required TextEditingController controller, required String hint, required IconData icon, int maxLines = 1, TextInputType keyboardType = TextInputType.text}) {
+    return TextField(
+      controller: controller, 
+      maxLines: maxLines, 
+      keyboardType: keyboardType,
+      decoration: InputDecoration(
+        prefixIcon: Icon(icon), 
+        hintText: hint, 
+        filled: true, 
+        fillColor: AppColors.inputBg, 
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(15))
+      )
+    );
   }
 
   Widget _buildPickerContainer({required IconData icon, required String text, required VoidCallback onTap, required bool isActive}) {
@@ -159,55 +169,65 @@ class _AddEventPageState extends State<AddEventPage> {
           child: ListView(
             padding: const EdgeInsets.all(24),
             children: [
-               _buildLabel("Nama Kegiatan"),
-               _buildTextField(controller: _titleController, hint: "Nama Event", icon: Icons.event),
-               const SizedBox(height: 20),
-               
-               Row(children: [
-                 Expanded(child: _buildPickerContainer(icon: Icons.calendar_today, text: _selectedDate?.toString().split(' ')[0] ?? "Pilih Tgl", onTap: _pickDate, isActive: _selectedDate != null)),
-                 const SizedBox(width: 10),
-                 Expanded(child: _buildPickerContainer(icon: Icons.access_time, text: _selectedTime?.format(context) ?? "Pilih Jam", onTap: _pickTime, isActive: _selectedTime != null)),
-               ]),
-               
-               const SizedBox(height: 20),
-               _buildLabel("Lokasi"),
-               _buildTextField(controller: _locController, hint: "Lokasi", icon: Icons.location_on),
-               
-               const SizedBox(height: 20),
-               _buildLabel("Poster"),
-               GestureDetector(
-                 onTap: _pickImage,
-                 child: Container(
-                   height: 200,
-                   decoration: BoxDecoration(
-                     color: Colors.grey[200],
-                     borderRadius: BorderRadius.circular(15),
-                     // Gunakan Image.memory untuk menampilkan Bytes (Universal)
-                     image: _imageBytes != null 
-                        ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) 
-                        : null,
-                   ),
-                   child: _imageBytes == null 
-                    ? const Center(child: Column(
-                        mainAxisAlignment: MainAxisAlignment.center,
-                        children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), Text("Upload Poster", style: TextStyle(color: Colors.grey))],
+                _buildLabel("Nama Kegiatan"),
+                _buildTextField(controller: _titleController, hint: "Nama Event", icon: Icons.event),
+                const SizedBox(height: 20),
+                
+                Row(children: [
+                  Expanded(child: _buildPickerContainer(icon: Icons.calendar_today, text: _selectedDate?.toString().split(' ')[0] ?? "Pilih Tgl", onTap: _pickDate, isActive: _selectedDate != null)),
+                  const SizedBox(width: 10),
+                  Expanded(child: _buildPickerContainer(icon: Icons.access_time, text: _selectedTime?.format(context) ?? "Pilih Jam", onTap: _pickTime, isActive: _selectedTime != null)),
+                ]),
+                
+                const SizedBox(height: 20),
+                _buildLabel("Lokasi"),
+                _buildTextField(controller: _locController, hint: "Lokasi", icon: Icons.location_on),
+                
+                const SizedBox(height: 20),
+                // 🔥 INPUT LINK PENDAFTARAN BARU
+                _buildLabel("Link Pendaftaran (Opsional)"),
+                _buildTextField(
+                  controller: _regLinkController, 
+                  hint: "Contoh: https://bit.ly/pendaftaran-event", 
+                  icon: Icons.link,
+                  keyboardType: TextInputType.url // Keyboard khusus untuk URL
+                ),
+                
+                const SizedBox(height: 20),
+                _buildLabel("Poster"),
+                GestureDetector(
+                  onTap: _pickImage,
+                  child: Container(
+                    height: 200,
+                    decoration: BoxDecoration(
+                      color: Colors.grey[200],
+                      borderRadius: BorderRadius.circular(15),
+                      // Gunakan Image.memory untuk menampilkan Bytes (Universal)
+                      image: _imageBytes != null 
+                         ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) 
+                         : null,
+                    ),
+                    child: _imageBytes == null 
+                     ? const Center(child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), Text("Upload Poster", style: TextStyle(color: Colors.grey))],
                       )) 
-                    : null,
-                 ),
-               ),
+                     : null,
+                  ),
+                ),
 
-               const SizedBox(height: 20),
-               _buildLabel("Deskripsi"),
-               _buildTextField(controller: _descController, hint: "Deskripsi", icon: Icons.description, maxLines: 3),
+                const SizedBox(height: 20),
+                _buildLabel("Deskripsi"),
+                _buildTextField(controller: _descController, hint: "Deskripsi", icon: Icons.description, maxLines: 3),
 
-               const SizedBox(height: 30),
-               ElevatedButton(
-                 onPressed: _isSubmitting ? null : _submitEvent,
-                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.all(16)),
-                 child: _isSubmitting 
+                const SizedBox(height: 30),
+                ElevatedButton(
+                  onPressed: _isSubmitting ? null : _submitEvent,
+                  style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.all(16)),
+                  child: _isSubmitting 
                     ? const CircularProgressIndicator(color: Colors.white) 
                     : const Text("Publikasikan", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
-               )
+                )
             ],
           ),
         ),

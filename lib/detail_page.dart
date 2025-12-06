@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'event_model.dart';
+import 'package:url_launcher/url_launcher.dart'; // 🌟 IMPORT BARU
 // import 'package:cached_network_image/cached_network_image.dart'; // Opsional: untuk caching
 
 // Pastikan AppColors bisa diakses
@@ -12,6 +13,27 @@ class AppColors {
 class DetailPage extends StatelessWidget {
  final EventModel event;
  const DetailPage({super.key, required this.event});
+
+ // 🌟 FUNGSI BARU: Membuka URL di browser
+ Future<void> _launchUrl(BuildContext context, String? urlString) async {
+  if (urlString == null || urlString.isEmpty) {
+   ScaffoldMessenger.of(context).showSnackBar(
+    const SnackBar(content: Text('Link pendaftaran belum tersedia!')),
+   );
+   return;
+  }
+  
+  // Pastikan URL memiliki skema (misalnya, https://)
+  Uri url = Uri.parse(urlString.startsWith('http') ? urlString : 'https://$urlString');
+
+  if (!await launchUrl(url, mode: LaunchMode.externalApplication)) {
+   if (context.mounted) {
+    ScaffoldMessenger.of(context).showSnackBar(
+     SnackBar(content: Text('Tidak dapat membuka link: $urlString')),
+    );
+   }
+  }
+ }
 
  // Widget untuk menampilkan gambar jaringan atau fallback
  Widget _buildEventImage(BuildContext context, double height) {
@@ -63,6 +85,9 @@ class DetailPage extends StatelessWidget {
   final double screenHeight = MediaQuery.of(context).size.height;
   final double imageContainerHeight = screenHeight * 0.65;
   final double infoContainerHeight = screenHeight * 0.45;
+  
+  // 🌟 Cek apakah link pendaftaran ada
+  final bool isRegistrationLinkAvailable = event.registrationLink != null && event.registrationLink!.isNotEmpty;
 
   return Scaffold(
    body: Stack(
@@ -225,20 +250,19 @@ class DetailPage extends StatelessWidget {
            // Tombol Daftar (Primary)
            Expanded(
             child: ElevatedButton.icon( // Menggunakan ElevatedButton.icon untuk tampilan yang lebih menarik
-             icon: const Icon(Icons.confirmation_number_outlined, size: 20),
-             label: const Text(
-              "Daftar Sekarang",
-              style: TextStyle(
+             // 🌟 Ikon dan Teks tombol menyesuaikan
+             icon: Icon(isRegistrationLinkAvailable ? Icons.open_in_new : Icons.link_off, size: 20),
+             label: Text(
+              isRegistrationLinkAvailable ? "Daftar Sekarang" : "Link Tidak Tersedia",
+              style: const TextStyle(
                fontSize: 16,
                fontWeight: FontWeight.bold,
               ),
              ),
-             onPressed: () {
-              // TODO: Implementasi logika pendaftaran/pembelian tiket
-              ScaffoldMessenger.of(context).showSnackBar(
-               SnackBar(content: Text('Pendaftaran event "${event.title}"')),
-              );
-             },
+             // 🌟 PANGGIL FUNGSI _launchUrl
+             onPressed: isRegistrationLinkAvailable 
+                ? () => _launchUrl(context, event.registrationLink) 
+                : null, // Jika link tidak ada, tombol dinonaktifkan
              style: ElevatedButton.styleFrom(
               backgroundColor: AppColors.primary,
               foregroundColor: Colors.white,
@@ -247,6 +271,9 @@ class DetailPage extends StatelessWidget {
               shape: RoundedRectangleBorder(
                borderRadius: BorderRadius.circular(15),
               ),
+              // 🌟 Ubah warna jika tombol dinonaktifkan
+              disabledBackgroundColor: Colors.grey.shade400,
+              disabledForegroundColor: Colors.grey.shade700,
              ),
             ),
            ),
