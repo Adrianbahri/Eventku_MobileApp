@@ -19,7 +19,11 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  void refreshUI() {}
+  // Callback sederhana untuk refresh (jika diperlukan)
+  void refreshUI() {
+    setState(() {});
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -72,6 +76,7 @@ class _HomePageState extends State<HomePage> {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('events')
+          // ✅ PERBAIKAN: Sorting berdasarkan timestamp terbaru
           .orderBy('timestamp', descending: true)
           .snapshots(),
 
@@ -102,6 +107,7 @@ class _HomePageState extends State<HomePage> {
 
         // Konversi Data dari Firestore ke List<EventModel>
         final List<EventModel> dataEvents = snapshot.data!.docs.map((doc) {
+          // Mengambil data dan ID dokumen
           return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
         }).toList();
 
@@ -115,7 +121,6 @@ class _HomePageState extends State<HomePage> {
 
             return GestureDetector(
               onTap: () {
-                // Navigasi ke DetailPage
                 Navigator.push(
                   context,
                   MaterialPageRoute(
@@ -123,19 +128,18 @@ class _HomePageState extends State<HomePage> {
                   ),
                 );
               },
-              // PERBAIKAN: Mengganti Container dengan Padding di sekitar _EventCardResponsive.
               child: Padding(
                 padding: const EdgeInsets.only(
                   left: 10,
                   right: 10,
                   top: 10,
-                  bottom: 110,
-                ), // Padding yang besar ada di sini
+                  bottom: 110, // Memberi ruang untuk Bottom Nav Bar
+                ),
                 child: _EventCardResponsive(
                   title: event.title,
                   date: event.date,
                   location: event.location,
-                  imagePath: event.imagePath,
+                  imagePath: event.imagePath, 
                 ),
               ),
             );
@@ -147,10 +151,10 @@ class _HomePageState extends State<HomePage> {
 }
 
 // -------------------------------------------------------------
-//          WIDGET KOMPONEN TAMBAHAN
+//          WIDGET KOMPONEN TAMBAHAN
 // -------------------------------------------------------------
 
-// --- 2. KARTU EVENT RESPONSIF (DIPERBAIKI UNTUK URL GAMBAR) ---
+// --- KARTU EVENT RESPONSIF (Disesuaikan untuk URL Firebase Storage) ---
 class _EventCardResponsive extends StatelessWidget {
   final String title;
   final String date;
@@ -158,6 +162,7 @@ class _EventCardResponsive extends StatelessWidget {
   final String imagePath;
 
   const _EventCardResponsive({
+    super.key,
     required this.title,
     required this.date,
     required this.location,
@@ -166,12 +171,13 @@ class _EventCardResponsive extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bool isNetworkImage = imagePath.startsWith('http');
+    // Cek apakah imagePath tidak kosong dan merupakan URL (https)
+    final bool isNetworkImage = imagePath.isNotEmpty && imagePath.startsWith('http');
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 1. GAMBAR (Menggunakan Image.network jika berupa URL)
+        // GAMBAR
         Expanded(
           child: Container(
             width: double.infinity,
@@ -187,13 +193,11 @@ class _EventCardResponsive extends StatelessWidget {
             ),
             child: ClipRRect(
               borderRadius: BorderRadius.circular(20),
-              child:
-                  isNetworkImage &&
-                      imagePath
-                          .isNotEmpty // Pastikan URL tidak kosong
+              child: isNetworkImage
                   ? Image.network(
                       imagePath,
                       fit: BoxFit.cover,
+                      // Loading Builder
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Center(
@@ -201,35 +205,51 @@ class _EventCardResponsive extends StatelessWidget {
                             color: AppColors.primary,
                             value: loadingProgress.expectedTotalBytes != null
                                 ? loadingProgress.cumulativeBytesLoaded /
-                                      loadingProgress.expectedTotalBytes!
+                                    loadingProgress.expectedTotalBytes!
                                 : null,
                           ),
                         );
                       },
+                      // Error Builder dengan Debugging
                       errorBuilder: (context, error, stackTrace) {
+                        // ---------------------------------------------
+                        debugPrint("❌ GAGAL LOAD GAMBAR DARI URL: $imagePath");
+                        debugPrint("❌ ERROR DETAIL: $error");
+                        // ---------------------------------------------
+                        
                         return Container(
-                          color: Colors.grey[300],
-                          child: const Center(
-                            child: Icon(
-                              Icons.broken_image,
-                              size: 50,
-                              color: Colors.grey,
-                            ),
+                          color: Colors.grey[200],
+                          width: double.infinity,
+                          child: Column(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.shield_moon_outlined, color: Colors.grey, size: 30),
+                              const SizedBox(height: 4),
+                              Text(
+                                "Gagal Memuat (Cek Izin Storage)", // Pesan yang lebih spesifik
+                                style: TextStyle(color: Colors.grey[600], fontSize: 10),
+                              )
+                            ],
                           ),
                         );
                       },
                     )
-                  : Container(
-                      color: Colors.grey[300],
-                      child: const Center(
-                        child: Text("URL Gambar Tidak Valid"),
-                      ),
+                  // Fallback jika bukan URL (Asset Lokal)
+                  : Image.asset(
+                      "assets/image/poster1.png", 
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                         debugPrint("❌ Asset tidak ditemukan: assets/image/poster1.png");
+                        return Container(color: Colors.grey[300]);
+                      },
                     ),
             ),
           ),
         ),
 
         const SizedBox(height: 12),
+        
+        // INFO TEXT
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 4),
           child: Column(
@@ -277,8 +297,7 @@ class _EventCardResponsive extends StatelessWidget {
     );
   }
 }
-
-// --- 3. HEADER DENGAN NAVIGASI ADD EVENT ---
+// --- HEADER ---
 class CustomHeader extends StatelessWidget {
   final VoidCallback onEventAdded;
   const CustomHeader({super.key, required this.onEventAdded});
@@ -303,12 +322,14 @@ class CustomHeader extends StatelessWidget {
       ),
       child: Row(
         children: [
-          // Pastikan gambar ini tersedia di folder 'assets/image/'
+          // Logo (Pastikan aset ada)
           Image.asset(
             "assets/image/primarylogo.png",
             height: 45,
             width: 80,
             fit: BoxFit.contain,
+            errorBuilder: (context, error, stackTrace) => 
+               const Icon(Icons.calendar_month, color: AppColors.primary, size: 30), // ✅ Fallback icon yang lebih baik
           ),
           const SizedBox(width: 12),
           Expanded(
@@ -316,11 +337,7 @@ class CustomHeader extends StatelessWidget {
               decoration: InputDecoration(
                 hintText: "Search...",
                 hintStyle: const TextStyle(fontSize: 14, color: Colors.grey),
-                prefixIcon: const Icon(
-                  Icons.search,
-                  color: Colors.grey,
-                  size: 22,
-                ),
+                prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 22),
                 filled: true,
                 fillColor: Colors.grey[100],
                 isDense: true,
@@ -328,23 +345,21 @@ class CustomHeader extends StatelessWidget {
                   borderRadius: BorderRadius.circular(15),
                   borderSide: BorderSide.none,
                 ),
-                contentPadding: const EdgeInsets.symmetric(
-                  horizontal: 16,
-                  vertical: 12,
-                ),
+                contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
               ),
             ),
           ),
           const SizedBox(width: 12),
 
-          // TOMBOL ADD (NAVIGASI)
+          // TOMBOL ADD
           InkWell(
             onTap: () async {
+              // Navigasi ke AddEventPage yang sudah Anda buat
               await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddEventPage()),
               );
-              onEventAdded();
+              onEventAdded(); // Refresh UI setelah kembali
             },
             child: Container(
               height: 40,
@@ -362,13 +377,12 @@ class CustomHeader extends StatelessWidget {
   }
 }
 
-// --- 4. FOOTER / CUSTOM FLOATING NAV BAR ---
+// --- FOOTER / NAVBAR ---
 class CustomFloatingNavBar extends StatelessWidget {
   const CustomFloatingNavBar({super.key});
 
   @override
   Widget build(BuildContext context) {
-    // Mendapatkan informasi user saat ini
     final user = FirebaseAuth.instance.currentUser;
     final userName = user?.displayName?.split(' ').first ?? 'User';
 
@@ -389,15 +403,11 @@ class CustomFloatingNavBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          // BAGIAN PROFIL YANG DIKLIK
           InkWell(
             onTap: () {
-              // NAVIGASI KE PROFILE PAGE
               Navigator.push(
                 context,
-                MaterialPageRoute(
-                  builder: (context) => const ProfilePage(),
-                ), // <--- TARGET PAGE
+                MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
             },
             child: Row(
@@ -405,25 +415,16 @@ class CustomFloatingNavBar extends StatelessWidget {
                 CircleAvatar(
                   radius: 14,
                   backgroundColor: AppColors.primary.withOpacity(0.1),
-                  child: const Icon(
-                    Icons.person,
-                    size: 16,
-                    color: AppColors.primary,
-                  ),
+                  child: const Icon(Icons.person, size: 16, color: AppColors.primary),
                 ),
                 const SizedBox(width: 10),
                 Text(
                   "Halo, $userName!",
-                  style: const TextStyle(
-                    fontWeight: FontWeight.bold,
-                    fontSize: 14,
-                  ),
+                  style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14),
                 ),
               ],
             ),
           ),
-
-          // IKON NAVIGASI LAIN
           Row(
             children: [
               Icon(Icons.favorite_border, color: Colors.grey[600]),
@@ -434,95 +435,6 @@ class CustomFloatingNavBar extends StatelessWidget {
             ],
           ),
         ],
-      ),
-    );
-  }
-}
-
-// --- 5. VERIFY EMAIL PAGE (Didefinisikan di sini untuk menghindari "Undefined Class") ---
-class VerifyEmailPage extends StatefulWidget {
-  const VerifyEmailPage({super.key});
-
-  @override
-  State<VerifyEmailPage> createState() => _VerifyEmailPageState();
-}
-
-class _VerifyEmailPageState extends State<VerifyEmailPage> {
-  Future<void> _sendVerificationEmail() async {
-    try {
-      await FirebaseAuth.instance.currentUser?.sendEmailVerification();
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Verification email sent!')),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(
-          context,
-        ).showSnackBar(SnackBar(content: Text('Error sending email: $e')));
-      }
-    }
-  }
-
-  Future<void> _checkEmailVerified() async {
-    // Pastikan user di-reload untuk mendapatkan status verifikasi terbaru
-    await FirebaseAuth.instance.currentUser?.reload();
-    final isVerified =
-        FirebaseAuth.instance.currentUser?.emailVerified ?? false;
-
-    if (isVerified && mounted) {
-      // Ganti ke halaman utama atau root
-      Navigator.pushReplacementNamed(context, '/');
-    } else if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Email belum diverifikasi. Cek inbox Anda.'),
-        ),
-      );
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text('Verify Email')),
-      body: Center(
-        child: Padding(
-          padding: const EdgeInsets.all(24.0),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              const Icon(
-                Icons.mark_email_unread,
-                size: 80,
-                color: Colors.amber,
-              ),
-              const SizedBox(height: 20),
-              const Text(
-                'A verification email has been sent to your address. Please check your inbox and spam folder.',
-                textAlign: TextAlign.center,
-                style: TextStyle(fontSize: 16),
-              ),
-              const SizedBox(height: 40),
-
-              ElevatedButton(
-                onPressed: _checkEmailVerified,
-                child: const Text('Check Verification Status'),
-              ),
-              const SizedBox(height: 10),
-              TextButton(
-                onPressed: _sendVerificationEmail,
-                child: const Text('Resend Verification Email'),
-              ),
-              const SizedBox(height: 20),
-              TextButton(
-                onPressed: () => FirebaseAuth.instance.signOut(),
-                child: const Text('Sign Out'),
-              ),
-            ],
-          ),
-        ),
       ),
     );
   }

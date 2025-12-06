@@ -1,4 +1,19 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+        <manifest xmlns:android="http://schemas.android.com/apk/res/android"
+        package="com.example.anda">
+
+        <uses-permission android:name="android.permission.INTERNET"/>
+        <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE"/>
+
+        <application
+            android:label="Nama App"
+            android:name="${applicationName}"
+            android:icon="@mipmap/ic_launcher"
+            android:usesCleartextTraffic="true"> 
+            
+            ...
+        </application>
+    </manifest>
     <application
         android:label="eventku"
         android:name="${applicationName}"

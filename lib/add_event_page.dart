@@ -1,7 +1,11 @@
+import 'dart:typed_data'; // Untuk Uint8List (Pengganti File)
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'event_model.dart';
+import 'package:firebase_storage/firebase_storage.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'event_model.dart';
+// Note: Jangan lupa jalankan flutter pub add image_picker firebase_storage cloud_firestore firebase_auth
 
 class AppColors {
   static const primary = Color.fromRGBO(232, 0, 168, 1);
@@ -17,327 +21,206 @@ class AddEventPage extends StatefulWidget {
 }
 
 class _AddEventPageState extends State<AddEventPage> {
-  // Controllers
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _locController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
-  final TextEditingController _imageUrlController = TextEditingController(); // Controller untuk URL Gambar
 
-  // State Variables
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
+  
+  // --- STATE UNTUK GAMBAR (UNIVERSAL) ---
+  Uint8List? _imageBytes; // Data gambar mentah (bytes)
+  bool _isSubmitting = false;
 
   @override
   void dispose() {
     _titleController.dispose();
     _locController.dispose();
     _descController.dispose();
-    _imageUrlController.dispose(); // Wajib dispose controller URL
     super.dispose();
   }
 
-  // --- FUNGSI HELPER TANGGAL & WAKTU ---
+  // --- LOGIKA PEMILIHAN GAMBAR (ALL PLATFORMS) ---
+  Future<void> _pickImage() async {
+    final ImagePicker picker = ImagePicker();
+    try {
+      final XFile? picked = await picker.pickImage(
+        source: ImageSource.gallery,
+        maxWidth: 800, // Resize agar ringan diupload
+        imageQuality: 80,
+      );
 
-  Future<void> _pickDate() async {
-    final DateTime? picked = await showDatePicker(
-      context: context,
-      initialDate: DateTime.now(),
-      firstDate: DateTime.now(),
-      lastDate: DateTime(2101),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
+      if (picked != null) {
+        // Baca file sebagai Bytes (Data Mentah)
+        final bytes = await picked.readAsBytes();
+        
+        setState(() {
+          _imageBytes = bytes;
+          // Nama file tidak lagi disimpan di sini karena akan dibuat unik saat upload
+        });
+      }
+    } catch (e) {
+      // Pastikan Anda telah mengkonfigurasi izin (permissions) di Android/iOS
+      debugPrint("Error pick image: $e");
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text("Gagal memilih gambar. Cek izin: $e"))
         );
-      },
-    );
-    if (picked != null) {
-      setState(() => _selectedDate = picked);
+      }
     }
+  }
+
+  // --- LOGIKA SUBMIT EVENT ---
+  void _submitEvent() async {
+    final currentUserId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (currentUserId == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Harap login dahulu!")));
+      return;
+    }
+
+    if (_titleController.text.isEmpty || _imageBytes == null || _selectedDate == null || _selectedTime == null) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Lengkapi semua data & gambar!")));
+      return;
+    }
+
+    setState(() => _isSubmitting = true);
+
+    try {
+      // 1. UPLOAD GAMBAR KE FIREBASE STORAGE
+      String fileName = '${currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
+      Reference storageRef = FirebaseStorage.instance.ref().child('posters/$fileName');
+      
+      final metadata = SettableMetadata(contentType: 'image/jpeg');
+      
+      // Upload Bytes (Bekerja di Web & Android)
+      UploadTask uploadTask = storageRef.putData(_imageBytes!, metadata);
+      
+      TaskSnapshot snapshot = await uploadTask;
+      String imageUrl = await snapshot.ref.getDownloadURL();
+
+      // 2. SIMPAN METADATA KE FIRESTORE
+      
+      // Format Tanggal dan Waktu
+      final String formattedDateString = 
+          "${_selectedDate!.day}/${_selectedDate!.month}/${_selectedDate!.year} ${_selectedTime!.format(context)}";
+
+      // Membuat objek EventModel (dengan ID sementara)
+      final newEvent = EventModel(
+        id: '', // ID dikosongkan karena akan diisi oleh Firestore
+        title: _titleController.text,
+        date: formattedDateString,
+        location: _locController.text,
+        description: _descController.text,
+        imagePath: imageUrl, // URL yang baru didapatkan
+        userId: currentUserId,
+        timestamp: null, // Dibiarkan null, akan diisi FieldValue.serverTimestamp()
+      );
+
+      // Menggunakan spread operator dan menambahkan 'timestamp' secara terpisah
+      await FirebaseFirestore.instance.collection('events').add({
+        ...newEvent.toMap(),
+        'timestamp': FieldValue.serverTimestamp(), // Untuk sorting yang akurat
+      });
+
+      if (mounted) {
+        // Berhasil, kembali ke halaman sebelumnya
+        Navigator.pop(context);
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Event Berhasil Dibuat!")));
+      }
+    } catch (e) {
+      debugPrint("Error saat submit: $e");
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: Gagal menyimpan data.")));
+    } finally {
+      if (mounted) setState(() => _isSubmitting = false);
+    }
+  }
+
+  // --- HELPER PICKER & WIDGETS ---
+  Future<void> _pickDate() async {
+      final DateTime? picked = await showDatePicker(
+        context: context, initialDate: DateTime.now(),
+        firstDate: DateTime.now(), lastDate: DateTime(2101));
+      if (picked != null) setState(() => _selectedDate = picked);
   }
 
   Future<void> _pickTime() async {
     final TimeOfDay? picked = await showTimePicker(
-      context: context,
-      initialTime: TimeOfDay.now(),
-      builder: (context, child) {
-        return Theme(
-          data: Theme.of(context).copyWith(
-            colorScheme: const ColorScheme.light(
-              primary: AppColors.primary,
-              onPrimary: Colors.white,
-              onSurface: Colors.black,
-            ),
-          ),
-          child: child!,
-        );
-      },
-    );
-    if (picked != null) {
-      setState(() => _selectedTime = picked);
-    }
+      context: context, initialTime: TimeOfDay.now());
+    if (picked != null) setState(() => _selectedTime = picked);
   }
 
-  String _formatDateTimeNice(DateTime date, TimeOfDay time) {
-    const List<String> days = ["Senin", "Selasa", "Rabu", "Kamis", "Jumat", "Sabtu", "Minggu"];
-    const List<String> months = ["Jan", "Feb", "Mar", "Apr", "Mei", "Jun", "Jul", "Agus", "Sep", "Okt", "Nov", "Des"];
-
-    String dayName = days[date.weekday - 1];
-    String monthName = months[date.month - 1];
-    String hour = time.hour.toString().padLeft(2, '0');
-    String minute = time.minute.toString().padLeft(2, '0');
-
-    return "$dayName, ${date.day} $monthName • $hour:$minute";
-  }
+  Widget _buildLabel(String text) => Padding(padding: const EdgeInsets.only(bottom: 8), child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold)));
   
-  // --- FUNGSI SUBMIT EVENT (FIRESTORE) ---
-  void _submitEvent() async {
-    // [PERBAIKAN 1]: Ambil nilai URL dari controller sebelum validasi
-    final String imageUrl = _imageUrlController.text.trim();
-    final currentUserId = FirebaseAuth.instance.currentUser?.uid; 
-    
-    // [VALIDASI 1]: Cek status login
-    if (currentUserId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Anda harus login untuk membuat event!"), backgroundColor: Colors.red),
-      );
-      return;
-    }
-
-    // [VALIDASI 2]: Cek semua field wajib
-    if (_titleController.text.isEmpty ||
-        _locController.text.isEmpty ||
-        _descController.text.isEmpty ||
-        _selectedDate == null ||
-        _selectedTime == null ||
-        imageUrl.isEmpty ||
-        !Uri.parse(imageUrl).isAbsolute) { // Validasi URL dasar
-      
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Harap lengkapi semua data, dan pastikan URL gambar valid.")),
-      );
-      return;
-    }
-
-    final String formattedDateString = _formatDateTimeNice(_selectedDate!, _selectedTime!);
-
-    final newEvent = EventModel(
-      id: '', 
-      title: _titleController.text,
-      date: formattedDateString, 
-      location: _locController.text,
-      description: _descController.text,
-      imagePath: imageUrl, // Menggunakan URL dari input pengguna
-      userId: currentUserId, // Menyimpan ID pengguna
-    );
-
-    try {
-      final firestore = FirebaseFirestore.instance;
-      // Kirim data ke Collection 'events'
-      await firestore.collection('events').add(newEvent.toMap());
-
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text("Event berhasil dipublikasikan!"), backgroundColor: Colors.green),
-        );
-        Navigator.pop(context); 
-      }
-
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text("Gagal mengirim event ke Firestore: $e"), backgroundColor: Colors.red),
-        );
-      }
-    }
-  }
-
-  // --- WIDGET BUILDER ---
-
-  @override
-  Widget build(BuildContext context) {
-    const bool isSubmitting = false; // Gunakan state loading jika diperlukan di masa depan
-
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        title: const Text("Buat Event Baru", style: TextStyle(color: Colors.black, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.white,
-        elevation: 0,
-        iconTheme: const IconThemeData(color: Colors.black),
-      ),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(24.0),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            // 1. NAMA KEGIATAN
-            _buildLabel("Nama Kegiatan"),
-            _buildTextField(
-              controller: _titleController,
-              hint: "Contoh: Konser Musik John Wick",
-              icon: Icons.event,
-            ),
-
-            const SizedBox(height: 20),
-
-            // 2. TANGGAL & JAM
-            Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel("Tanggal"),
-                      _buildPickerContainer(
-                        icon: Icons.calendar_today,
-                        text: _selectedDate == null 
-                            ? "Pilih Tgl" 
-                            : "${_selectedDate!.day}-${_selectedDate!.month}-${_selectedDate!.year}",
-                        onTap: _pickDate,
-                        isActive: _selectedDate != null,
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildLabel("Jam Mulai"),
-                      _buildPickerContainer(
-                        icon: Icons.access_time,
-                        text: _selectedTime == null 
-                            ? "Pilih Jam" 
-                            : _selectedTime!.format(context),
-                        onTap: _pickTime,
-                        isActive: _selectedTime != null,
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-
-            const SizedBox(height: 20),
-
-            // 3. LOKASI
-            _buildLabel("Tempat Kegiatan"),
-            _buildTextField(
-              controller: _locController,
-              hint: "Contoh: Lincoln Square, NY",
-              icon: Icons.location_on,
-            ),
-
-            const SizedBox(height: 20),
-
-            // 4. INPUT URL GAMBAR (Pengganti fitur upload)
-            _buildLabel("URL Poster"),
-            _buildTextField(
-              controller: _imageUrlController, 
-              hint: "Contoh: https://i.imgur.com/your-poster.jpg",
-              icon: Icons.link,
-              keyboardType: TextInputType.url,
-            ),
-            
-            const SizedBox(height: 20),
-
-            // 5. DESKRIPSI
-            _buildLabel("Deskripsi Singkat"),
-            _buildTextField(
-              controller: _descController,
-              hint: "Jelaskan detail seru mengenai event ini...",
-              icon: Icons.description,
-              maxLines: 4,
-            ),
-
-            const SizedBox(height: 40),
-
-            // 6. TOMBOL SUBMIT
-            SizedBox(
-              width: double.infinity,
-              height: 55,
-              child: ElevatedButton(
-                onPressed: isSubmitting ? null : _submitEvent,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primary,
-                  elevation: 0,
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                ),
-                child: Text(
-                  isSubmitting ? "Mengirim Data..." : "Publikasikan Event",
-                  style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: Colors.white)
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // --- WIDGET HELPERS ---
-  
-  Widget _buildLabel(String text) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8.0, left: 4),
-      child: Text(text, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14, color: Colors.black87)),
-    );
-  }
-
-  Widget _buildTextField({required TextEditingController controller, required String hint, required IconData icon, int maxLines = 1, TextInputType keyboardType = TextInputType.text}) {
-    return Container(
-      decoration: BoxDecoration(color: AppColors.inputBg, borderRadius: BorderRadius.circular(15)),
-      child: TextField(
-        controller: controller,
-        maxLines: maxLines,
-        keyboardType: keyboardType,
-        style: const TextStyle(fontSize: 16),
-        decoration: InputDecoration(
-          prefixIcon: Padding(padding: const EdgeInsets.only(left: 12, right: 8, bottom: 2), child: Icon(icon, color: AppColors.primary, size: 20)),
-          prefixIconConstraints: const BoxConstraints(minWidth: 40),
-          hintText: hint,
-          hintStyle: TextStyle(color: Colors.grey[400], fontSize: 14),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade300)),
-          enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide(color: Colors.grey.shade200)),
-          focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: AppColors.primary, width: 1.5)),
-          contentPadding: const EdgeInsets.symmetric(vertical: 16, horizontal: 16),
-        ),
-      ),
-    );
+  Widget _buildTextField({required TextEditingController controller, required String hint, required IconData icon, int maxLines = 1}) {
+    return TextField(controller: controller, maxLines: maxLines, decoration: InputDecoration(prefixIcon: Icon(icon, color: AppColors.primary), hintText: hint, filled: true, fillColor: AppColors.inputBg, border: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: BorderSide.none), focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(15), borderSide: const BorderSide(color: AppColors.primary, width: 2))));
   }
 
   Widget _buildPickerContainer({required IconData icon, required String text, required VoidCallback onTap, required bool isActive}) {
-    return InkWell(
-      onTap: onTap,
-      borderRadius: BorderRadius.circular(15),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-        decoration: BoxDecoration(
-          color: AppColors.inputBg,
-          borderRadius: BorderRadius.circular(15),
-          border: Border.all(color: isActive ? AppColors.primary : Colors.grey.shade200),
-        ),
-        child: Row(
-          children: [
-            Icon(icon, color: isActive ? AppColors.primary : Colors.grey, size: 20),
-            const SizedBox(width: 8),
-            Flexible( 
-              child: Text(
-                text,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(color: isActive ? Colors.black87 : Colors.grey, fontSize: 14),
-              ),
-            ),
-          ],
+    return InkWell(onTap: onTap, child: Container(padding: const EdgeInsets.all(16), decoration: BoxDecoration(color: AppColors.inputBg, border: Border.all(color: isActive ? AppColors.primary : Colors.grey[300]!), borderRadius: BorderRadius.circular(15)), child: Row(children: [Icon(icon, color: isActive ? AppColors.primary : Colors.grey[600]), const SizedBox(width: 8), Text(text, style: TextStyle(color: isActive ? AppColors.textDark : Colors.grey[600]))])));
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("Buat Event Baru")),
+      body: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 600),
+          child: ListView(
+            padding: const EdgeInsets.all(24),
+            children: [
+               _buildLabel("Nama Kegiatan"),
+               _buildTextField(controller: _titleController, hint: "Nama Event", icon: Icons.event),
+               const SizedBox(height: 20),
+               
+               Row(children: [
+                 Expanded(child: _buildPickerContainer(icon: Icons.calendar_today, text: _selectedDate?.toString().split(' ')[0] ?? "Pilih Tanggal", onTap: _pickDate, isActive: _selectedDate != null)),
+                 const SizedBox(width: 10),
+                 Expanded(child: _buildPickerContainer(icon: Icons.access_time, text: _selectedTime?.format(context) ?? "Pilih Jam", onTap: _pickTime, isActive: _selectedTime != null)),
+               ]),
+               
+               const SizedBox(height: 20),
+               _buildLabel("Lokasi"),
+               _buildTextField(controller: _locController, hint: "Lokasi", icon: Icons.location_on),
+               
+               const SizedBox(height: 20),
+               _buildLabel("Poster"),
+               GestureDetector(
+                 onTap: _pickImage,
+                 child: Container(
+                   height: 200,
+                   decoration: BoxDecoration(
+                     color: AppColors.inputBg,
+                     borderRadius: BorderRadius.circular(15),
+                     // Gunakan Image.memory untuk menampilkan Bytes (Universal)
+                     image: _imageBytes != null 
+                        ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) 
+                        : null,
+                   ),
+                   child: _imageBytes == null 
+                    ? const Center(child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [Icon(Icons.add_a_photo, size: 40, color: Colors.grey), Text("Upload Poster", style: TextStyle(color: Colors.grey))],
+                      )) 
+                    : null,
+                 ),
+               ),
+
+               const SizedBox(height: 20),
+               _buildLabel("Deskripsi"),
+               _buildTextField(controller: _descController, hint: "Deskripsi Lengkap", icon: Icons.description, maxLines: 3),
+
+               const SizedBox(height: 30),
+               ElevatedButton(
+                 onPressed: _isSubmitting ? null : _submitEvent,
+                 style: ElevatedButton.styleFrom(backgroundColor: AppColors.primary, padding: const EdgeInsets.all(16), shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15))),
+                 child: _isSubmitting 
+                    ? const CircularProgressIndicator(color: Colors.white) 
+                    : const Text("Publikasikan Event", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16)),
+               )
+            ],
+          ),
         ),
       ),
     );
