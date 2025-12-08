@@ -2,8 +2,8 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 
 // Pastikan import ini sesuai dengan nama file Anda
-import 'login_page.dart'; 
-import 'dashboard_page.dart'; // Ubah '' ke 'home_page.dart' jika file utama Anda bernama home_page.dart
+import '../login page/login_page.dart'; 
+import '../Dahboard/dashboard_page.dart'; // Ubah '' ke 'home_page.dart' jika file utama Anda bernama home_page.dart
 
 class AuthWrapper extends StatelessWidget {
   const AuthWrapper({super.key});

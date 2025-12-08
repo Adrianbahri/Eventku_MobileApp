@@ -1,16 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'event_model.dart'; // Membutuhkan EventModel
+import '../Fungsi/event_model.dart'; // Membutuhkan EventModel
+import '../Fungsi/app_colors.dart';
 
 // Pastikan file 'event_model.dart' ada dan memiliki kelas EventModel
 // dan fungsi EventModel.fromMap.
 
-class AppColors {
-  static const primary = Color.fromRGBO(232, 0, 168, 1);
-  static const background = Color(0xFFF5F5F5);
-  static const textDark = Colors.black87;
-}
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});

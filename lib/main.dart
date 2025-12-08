@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'firebase_options.dart';
-import 'login_page.dart';
-import 'register_page.dart';
-import 'dashboard_page.dart';
-import 'auth_wrapper.dart';
+import 'Fungsi/firebase_options.dart';
+import 'login page/login_page.dart';
+import 'login page/register_page.dart';
+import 'Dahboard/dashboard_page.dart';
+import 'Fungsi/auth_wrapper.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();

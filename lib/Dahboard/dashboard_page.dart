@@ -1,19 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:firebase_auth/firebase_auth.dart';
 import 'detail_page.dart';
-import 'event_model.dart';
+import '../Fungsi/event_model.dart';
 import 'add_event_page.dart';
 import 'profile_page.dart';
 import 'notification_page.dart';
+import '../Fungsi/app_colors.dart';
 
-class AppColors {
-  static const primary = Color.fromRGBO(232, 0, 168, 1);
-  static const background = Color(0xFFF5F5F5);
-  static const textDark = Colors.black87;
-  static const tertiary = Color(0xFFC70039); // Warna Tambahan untuk Pembeda
-}
-
+// --- Halaman Utama (Dashboard) ---
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
   @override
@@ -21,15 +15,12 @@ class HomePage extends StatefulWidget {
 }
 
 class _HomePageState extends State<HomePage> {
-  // 1. TAMBAHKAN CONTROLLER UNTUK PENCARIAN
   final TextEditingController _searchController = TextEditingController();
-  // State untuk menyimpan query pencarian yang aktif
   String _searchQuery = '';
 
   @override
   void initState() {
     super.initState();
-    // 2. LISTEN KE PERUBAHAN INPUT SEARCH
     _searchController.addListener(_onSearchChanged);
   }
 
@@ -41,13 +32,11 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onSearchChanged() {
-    // Dipanggil setiap kali teks di kolom pencarian berubah
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
     });
   }
 
-  // Callback sederhana untuk refresh (jika diperlukan)
   void refreshUI() {
     setState(() {});
   }
@@ -62,10 +51,17 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // HEADER (Tidak Berubah dari versi sebelumnya, hanya Header Baru)
             CustomHeader(
               onEventAdded: refreshUI,
               searchController: _searchController,
+            ),
+            
+            const Divider(
+              height: 1, 
+              thickness: 1, 
+              color: Color(0xFFE0E0E0),
+              indent: 24, 
+              endIndent: 24, 
             ),
 
             Expanded(
@@ -76,7 +72,7 @@ class _HomePageState extends State<HomePage> {
                     padding: EdgeInsets.only(
                       left: 24,
                       right: 24,
-                      top: 20,
+                      top: 20, // Padding atas setelah Divider
                       bottom: 10,
                     ),
                     child: Text(
@@ -88,30 +84,24 @@ class _HomePageState extends State<HomePage> {
                       ),
                     ),
                   ),
-
-                  // CAROUSEL / PAGEVIEW DARI FIREBASE
-                  Expanded(child: _buildResponsiveCarousel()),
+                  Expanded(child: _buildEventCarousel()),
                 ],
               ),
             ),
           ],
         ),
       ),
-      // FOOTER BARU DENGAN LAYOUT YANG DIUBAH
       bottomNavigationBar: CustomFloatingNavBar(onAddEvent: refreshUI),
     );
   }
 
-  // Widget untuk membangun StreamBuilder dan PageView
-  Widget _buildResponsiveCarousel() {
-    // 3. LOGIKA FILTER DATA DI SINI
+  // Widget untuk StreamBuilder dan PageView
+  Widget _buildEventCarousel() {
     return StreamBuilder<QuerySnapshot>(
       stream: FirebaseFirestore.instance
           .collection('events')
-          // ✅ Sorting berdasarkan timestamp terbaru
           .orderBy('timestamp', descending: true)
           .snapshots(),
-
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -137,21 +127,19 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        // Konversi Data dari Firestore ke List<EventModel>
         final List<EventModel> allEvents = snapshot.data!.docs.map((doc) {
           return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
         }).toList();
 
-        // 4. FILTER DATA BERDASARKAN QUERY PENCARIAN (Client-Side Filtering)
+        // Filter data berdasarkan query pencarian (Client-Side Filtering)
         final filteredEvents = allEvents.where((event) {
           final titleLower = event.title.toLowerCase();
           final locationLower = event.location.toLowerCase();
           
           return _searchQuery.isEmpty || 
-                 titleLower.contains(_searchQuery) || // Filter Judul
-                 locationLower.contains(_searchQuery); // Filter Lokasi
+                titleLower.contains(_searchQuery) || 
+                locationLower.contains(_searchQuery); 
         }).toList();
-
 
         if (filteredEvents.isEmpty) {
           return Center(
@@ -163,7 +151,6 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        // Tampilkan data menggunakan PageView.builder
         return PageView.builder(
           controller: PageController(viewportFraction: 0.75),
           itemCount: filteredEvents.length,
@@ -185,7 +172,7 @@ class _HomePageState extends State<HomePage> {
                   left: 10,
                   right: 10,
                   top: 10,
-                  bottom: 110, // Memberi ruang untuk Bottom Nav Bar
+                  bottom: 110, 
                 ),
                 child: _EventCardResponsive(
                   title: event.title,
@@ -203,10 +190,10 @@ class _HomePageState extends State<HomePage> {
 }
 
 // -------------------------------------------------------------
-//          WIDGET KOMPONEN TAMBAHAN
+//          WIDGET KOMPONEN
 // -------------------------------------------------------------
 
-// --- KARTU EVENT RESPONSIF ---
+// --- Kartu Event Responsif ---
 class _EventCardResponsive extends StatelessWidget {
   final String title;
   final String date;
@@ -214,7 +201,6 @@ class _EventCardResponsive extends StatelessWidget {
   final String imagePath;
 
   const _EventCardResponsive({
-    super.key,
     required this.title,
     required this.date,
     required this.location,
@@ -223,7 +209,6 @@ class _EventCardResponsive extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Cek apakah imagePath tidak kosong dan merupakan URL (https)
     final bool isNetworkImage = imagePath.isNotEmpty && imagePath.startsWith('http');
 
     return Column(
@@ -249,7 +234,6 @@ class _EventCardResponsive extends StatelessWidget {
                   ? Image.network(
                       imagePath,
                       fit: BoxFit.cover,
-                      // Loading Builder
                       loadingBuilder: (context, child, loadingProgress) {
                         if (loadingProgress == null) return child;
                         return Center(
@@ -262,11 +246,7 @@ class _EventCardResponsive extends StatelessWidget {
                           ),
                         );
                       },
-                      // Error Builder dengan Debugging
                       errorBuilder: (context, error, stackTrace) {
-                        debugPrint("❌ GAGAL LOAD GAMBAR DARI URL: $imagePath");
-                        debugPrint("❌ ERROR DETAIL: $error");
-                        
                         return Container(
                           color: Colors.grey[200],
                           width: double.infinity,
@@ -276,7 +256,7 @@ class _EventCardResponsive extends StatelessWidget {
                               const Icon(Icons.shield_moon_outlined, color: Colors.grey, size: 30),
                               const SizedBox(height: 4),
                               Text(
-                                "Gagal Memuat (Cek Izin Storage)",
+                                "Gagal Memuat",
                                 style: TextStyle(color: Colors.grey[600], fontSize: 10),
                               )
                             ],
@@ -284,12 +264,10 @@ class _EventCardResponsive extends StatelessWidget {
                         );
                       },
                     )
-                  // Fallback jika bukan URL (Asset Lokal)
                   : Image.asset(
                       "assets/image/poster1.png", 
                       fit: BoxFit.cover,
                       errorBuilder: (context, error, stackTrace) {
-                         debugPrint("❌ Asset tidak ditemukan: assets/image/poster1.png");
                         return Container(color: Colors.grey[300]);
                       },
                     ),
@@ -348,18 +326,12 @@ class _EventCardResponsive extends StatelessWidget {
   }
 }
 
-// --- CUSTOM HEADER (Ikon Profile & Notifikasi) ---
-// File: dashboard_page.dart
-
-// ... (Kode sebelumnya)
-
-// --- CUSTOM HEADER (Ikon Profile & Notifikasi) ---
+// header
 class CustomHeader extends StatelessWidget {
   final VoidCallback onEventAdded;
   final TextEditingController searchController; 
 
   const CustomHeader({
-    super.key, 
     required this.onEventAdded,
     required this.searchController,
   });
@@ -368,48 +340,33 @@ class CustomHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       padding: const EdgeInsets.all(24),
-      decoration: const BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.only(
-          bottomLeft: Radius.circular(30),
-          bottomRight: Radius.circular(30),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            blurRadius: 10,
-            offset: Offset(0, 5),
-          ),
-        ],
-      ),
       child: Row(
         children: [
-          // 1. LOGO
+          // 1. Logo
           Image.asset(
             "assets/image/primarylogo.png",
             height: 35, 
             width: 60, 
             fit: BoxFit.contain,
             errorBuilder: (context, error, stackTrace) => 
-               const Icon(Icons.calendar_month, color: AppColors.primary, size: 24),
+              const Icon(Icons.calendar_month, color: AppColors.primary, size: 24),
           ),
-          const SizedBox(width: 12),
-          
-          // 2. SEARCH BAR
+          const SizedBox(width: 30),
+          // 2. Search Bar
           Expanded(
             child: SizedBox(
               height: 40,
               child: TextField(
-                controller: searchController, // Menggunakan controller dari parent
+                controller: searchController,
                 decoration: InputDecoration(
-                  hintText: "Search Event atau Lokasi...", 
+                  hintText: "Cari Event...", 
                   hintStyle: const TextStyle(fontSize: 12, color: Colors.grey),
-                  prefixIcon: const Icon(Icons.search, color: Colors.grey, size: 20),
+                  prefixIcon: const Icon(Icons.search, color: Color.fromARGB(255, 44, 44, 44), size: 20),
                   filled: true,
-                  fillColor: Colors.grey[100],
+                  fillColor: const Color.fromARGB(255, 245, 245, 245),
                   isDense: true,
                   border: OutlineInputBorder(
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(20),
                     borderSide: BorderSide.none,
                   ),
                   contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -417,9 +374,9 @@ class CustomHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 30),
 
-          // 3. IKON PROFILE (Navigasi ke ProfilePage)
+          // 3. Ikon Profile
           InkWell(
             onTap: () {
               Navigator.push(
@@ -427,14 +384,13 @@ class CustomHeader extends StatelessWidget {
                 MaterialPageRoute(builder: (context) => const ProfilePage()),
               );
             },
-            child: const Icon(Icons.person_outline, color: AppColors.textDark, size: 28),
+            child: const Icon(Icons.account_circle, color: Color.fromARGB(255, 50, 50, 50), size: 35),
           ),
           const SizedBox(width: 12),
           
-          // 4. IKON NOTIFICATION (Navigasi ke NotificationPage)
+          // 4. Ikon Notifikasi
           InkWell(
             onTap: () {
-              // ✅ NAVIGASI KE NOTIFICATION PAGE
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const NotificationPage()),
@@ -448,13 +404,17 @@ class CustomHeader extends StatelessWidget {
   }
 }
 
+// --- Floating Bottom Navigation Bar Kustom ---
 class CustomFloatingNavBar extends StatelessWidget {
   final VoidCallback onAddEvent;
 
   const CustomFloatingNavBar({super.key, required this.onAddEvent});
 
-  // Helper untuk tombol navigasi kecil
-  Widget _buildNavIcon({required IconData icon, required bool isActive, required VoidCallback onTap}) {
+  Widget _buildNavIcon({
+    required IconData icon, 
+    required bool isActive, 
+    required VoidCallback onTap
+  }) {
     return InkWell(
       onTap: onTap,
       child: Column(
@@ -462,17 +422,16 @@ class CustomFloatingNavBar extends StatelessWidget {
         children: [
           Icon(
             icon, 
-            color: isActive ? AppColors.primary : Colors.grey[600], 
+            color: isActive ? AppColors.primary : Colors.grey[600],
             size: 26
           ),
           const SizedBox(height: 4),
-          // Tambahkan indikator aktif jika perlu
           if (isActive) 
             Container(
               height: 4, 
               width: 4, 
               decoration: const BoxDecoration(
-                color: AppColors.primary, 
+                color: AppColors.primary,
                 shape: BoxShape.circle
               )
             )
@@ -485,10 +444,9 @@ class CustomFloatingNavBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
-      // ✅ Padding horizontal dipertahankan agar ada jarak dari tepi
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.background,
         borderRadius: BorderRadius.circular(50),
         boxShadow: const [
           BoxShadow(
@@ -499,11 +457,9 @@ class CustomFloatingNavBar extends StatelessWidget {
         ],
       ),
       child: Row(
-        // ✅ Ganti mainAxisAlignment menjadi spaceEvenly agar pembagian ruang lebih proporsional
-        // Kita kembali menggunakan spaceBetween dan mengatur jarak internal secara manual di Row ikon.
         mainAxisAlignment: MainAxisAlignment.spaceBetween, 
         children: [
-          // 1. TOMBOL ADD EVENT (KIRI)
+          // 1. Tombol Add Event
           InkWell(
             onTap: () async {
               await Navigator.push(
@@ -515,7 +471,7 @@ class CustomFloatingNavBar extends StatelessWidget {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
               decoration: BoxDecoration(
-                color: AppColors.primary,
+                color: AppColors.primary, 
                 borderRadius: BorderRadius.circular(30),
                 boxShadow: [
                   BoxShadow(
@@ -538,12 +494,9 @@ class CustomFloatingNavBar extends StatelessWidget {
             ),
           ),
 
-          // 2. KELOMPOK 3 IKON NAVIGASI (KANAN)
-          // ✅ Menggunakan Row dengan MainAxisAlignment.spaceAround agar ikon memiliki jarak internal yang baik,
-          // dan Row ini akan terdorong ke kanan oleh spaceBetween di Row parent.
-          // Kita atur lebar Row ini secara manual untuk memastikan ikon tidak terlalu mepet.
+          // 2. Kelompok Ikon Navigasi
           SizedBox(
-            width: 160, // Lebar yang diatur agar ikon terdistribusi dengan baik
+            width: 160, 
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [

@@ -1,16 +1,11 @@
-import 'dart:typed_data'; // Untuk Uint8List (Pengganti File)
+import 'dart:typed_data';
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'event_model.dart'; // Pastikan EventModel Anda memiliki properti registrationLink
-
-class AppColors {
-  static const primary = Color.fromRGBO(232, 0, 168, 1);
-  static const textDark = Colors.black87;
-  static const inputBg = Color(0xFFF9F9F9);
-}
+import '../Fungsi/event_model.dart';
+import '../Fungsi/app_colors.dart';
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -23,14 +18,13 @@ class _AddEventPageState extends State<AddEventPage> {
   final TextEditingController _titleController = TextEditingController();
   final TextEditingController _locController = TextEditingController();
   final TextEditingController _descController = TextEditingController();
-  // 🔥 CONTROLLER BARU UNTUK LINK PENDAFTARAN
   final TextEditingController _regLinkController = TextEditingController(); 
 
   DateTime? _selectedDate;
   TimeOfDay? _selectedTime;
   
   Uint8List? _imageBytes; 
-  String? _imageName; // Menyimpan nama file asli
+  String? _imageName;
   bool _isSubmitting = false;
 
   @override
@@ -38,7 +32,7 @@ class _AddEventPageState extends State<AddEventPage> {
     _titleController.dispose();
     _locController.dispose();
     _descController.dispose();
-    _regLinkController.dispose(); // 🔥 JANGAN LUPA DISPOSE
+    _regLinkController.dispose();
     super.dispose();
   }
 
@@ -204,7 +198,7 @@ class _AddEventPageState extends State<AddEventPage> {
                       borderRadius: BorderRadius.circular(15),
                       // Gunakan Image.memory untuk menampilkan Bytes (Universal)
                       image: _imageBytes != null 
-                         ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) 
+                        ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover) 
                          : null,
                     ),
                     child: _imageBytes == null 
