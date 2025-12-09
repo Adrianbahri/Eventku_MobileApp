@@ -403,7 +403,6 @@ class CustomHeader extends StatelessWidget {
     );
   }
 }
-
 // --- Floating Bottom Navigation Bar Kustom ---
 class CustomFloatingNavBar extends StatelessWidget {
   final VoidCallback onAddEvent;
@@ -415,6 +414,7 @@ class CustomFloatingNavBar extends StatelessWidget {
     required bool isActive, 
     required VoidCallback onTap
   }) {
+    // ... (Kode _buildNavIcon tetap sama)
     return InkWell(
       onTap: onTap,
       child: Column(
@@ -442,6 +442,17 @@ class CustomFloatingNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final double screenWidth = MediaQuery.of(context).size.width;
+    final bool isSmallScreen = screenWidth < 360;
+
+    // Properti Responsif untuk Tombol 'Add Event' (Dibuat Lebih Kecil)
+    final double horizontalPadding = isSmallScreen ? 10 : 20; // Diperkecil dari 12/24 menjadi 10/20
+    final double iconSize = isSmallScreen ? 18 : 22;       // Ikon 18 (dari 20/24)
+    final double fontSize = isSmallScreen ? 13 : 15;       // Font 13 (dari 14/16)
+    
+    // Lebar Grup Ikon Navigasi (Diperkecil)
+    final double navGroupWidth = isSmallScreen ? 130 : 140; // Diperkecil dari 150 menjadi 130/140
+
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12), 
@@ -457,19 +468,19 @@ class CustomFloatingNavBar extends StatelessWidget {
         ],
       ),
       child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween, 
+        mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // 1. Tombol Add Event
+          // 1. Tombol Add Event (Diperkecil)
           InkWell(
             onTap: () async {
               await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddEventPage()),
               );
-              onAddEvent(); // Refresh UI setelah kembali
+              onAddEvent(); 
             },
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 10), // Vertikal padding juga dikurangi
               decoration: BoxDecoration(
                 color: AppColors.primary, 
                 borderRadius: BorderRadius.circular(30),
@@ -481,31 +492,34 @@ class CustomFloatingNavBar extends StatelessWidget {
                   ),
                 ],
               ),
-              child: const Row(
+              child: Row(
                 children: [
-                  Icon(Icons.add, color: Colors.white, size: 24),
-                  SizedBox(width: 8),
+                  Icon(Icons.add, color: Colors.white, size: iconSize),
+                  const SizedBox(width: 4), // Jarak antar ikon dan teks dikurangi (dari 5 menjadi 4)
                   Text(
                     "Add Event",
-                    style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16),
+                    style: TextStyle(
+                      color: Colors.white, 
+                      fontWeight: FontWeight.bold, 
+                      fontSize: fontSize,
+                    ),
                   ),
                 ],
               ),
             ),
           ),
 
-          // 2. Kelompok Ikon Navigasi
+          // Jarak fleksibel
+          const Spacer(),
+
+          // 2. Kelompok Ikon Navigasi (Diperkecil lebarnya)
           SizedBox(
-            width: 160, 
+            width: navGroupWidth, // Lebar diperkecil (130/140) untuk mengurangi jarak antar ikon
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [
                 // BERANDA (Home) - Ikon aktif
-                _buildNavIcon(
-                  icon: Icons.home_filled, 
-                  isActive: true, 
-                  onTap: () {} 
-                ),
+                _buildNavIcon(icon: Icons.home_filled, isActive: true, onTap: () {}),
                 
                 // FAVORIT (Favorite)
                 _buildNavIcon(
