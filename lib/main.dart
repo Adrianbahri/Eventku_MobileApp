@@ -3,12 +3,14 @@ import 'package:firebase_core/firebase_core.dart';
 import 'Fungsi/firebase_options.dart';
 import 'login page/login_page.dart';
 import 'login page/register_page.dart';
+import 'package:timezone/data/latest.dart' as tz;
 import 'Dahboard/dashboard_page.dart';
 import 'Fungsi/auth_wrapper.dart';
 
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
-  
+  tz.initializeTimeZones(); 
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );

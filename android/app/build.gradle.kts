@@ -15,14 +15,17 @@ android {
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
-    // Menggunakan enum class JavaVersion untuk Kotlin Script
     compileOptions {
-        sourceCompatibility = JavaVersion.VERSION_17
-        targetCompatibility = JavaVersion.VERSION_17
+        sourceCompatibility = JavaVersion.VERSION_1_8 
+        targetCompatibility = JavaVersion.VERSION_1_8 
+        
+        // 🔑 Mengaktifkan Core Library Desugaring
+        isCoreLibraryDesugaringEnabled = true
     }
 
+    // 🔑 PERBAIKAN: Sinkronkan JVM Target Kotlin menjadi 1.8
     kotlinOptions {
-        jvmTarget = JavaVersion.VERSION_17.toString()
+        jvmTarget = JavaVersion.VERSION_1_8.toString() 
     }
 
     defaultConfig {
@@ -42,4 +45,9 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // 💡 Implementasi desugaring library
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
 }

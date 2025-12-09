@@ -351,7 +351,7 @@ class CustomHeader extends StatelessWidget {
             errorBuilder: (context, error, stackTrace) => 
               const Icon(Icons.calendar_month, color: AppColors.primary, size: 24),
           ),
-          const SizedBox(width: 30),
+          const SizedBox(width: 10),
           // 2. Search Bar
           Expanded(
             child: SizedBox(
@@ -374,7 +374,7 @@ class CustomHeader extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 30),
+          const SizedBox(width: 10),
 
           // 3. Ikon Profile
           InkWell(
@@ -386,7 +386,7 @@ class CustomHeader extends StatelessWidget {
             },
             child: const Icon(Icons.account_circle, color: Color.fromARGB(255, 50, 50, 50), size: 35),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           
           // 4. Ikon Notifikasi
           InkWell(

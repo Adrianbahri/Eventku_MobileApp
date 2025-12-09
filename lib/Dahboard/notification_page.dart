@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:intl/intl.dart'; // 💡 IMPORT BARU: Diperlukan untuk parsing string tanggal/waktu
 import '../Fungsi/event_model.dart'; // Membutuhkan EventModel
 import '../Fungsi/app_colors.dart';
+import '../Fungsi/notification_service.dart'; // Import service notifikasi
 
 // Pastikan file 'event_model.dart' ada dan memiliki kelas EventModel
 // dan fungsi EventModel.fromMap.
-
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -18,6 +19,65 @@ class NotificationPage extends StatefulWidget {
 class _NotificationPageState extends State<NotificationPage> {
   // State untuk pengaturan toggle notifikasi
   bool _isNotificationEnabled = true;
+
+  @override
+  void initState() {
+    super.initState();
+    // 💡 INIT: Inisialisasi service notifikasi saat state dibuat
+    NotificationService().initNotification();
+  }
+
+  // 📝 Logika Inti: Menghitung dan Menjadwalkan Pengingat
+  void _scheduleNotificationsForEvent(EventModel event) {
+    // Jika notifikasi dinonaktifkan, hentikan proses penjadwalan
+    if (!_isNotificationEnabled) return;
+
+    // 1. 🔑 PERBAIKAN: Parsing String 'date' menjadi DateTime
+    final DateTime eventDateTime;
+    try {
+      // Data event.date Anda adalah: "DD/MM/YYYY HH:MM" (misalnya "10/12/2025 02:44")
+      // Gunakan DateFormat untuk mengkonversi string ini ke objek DateTime.
+      eventDateTime = DateFormat("dd/MM/yyyy HH:mm").parse(event.date); 
+    } catch (e) {
+      debugPrint("Error parsing event date string for event ${event.id}: ${event.date}. Error: $e");
+      return; // Lewati jika format tanggal tidak valid
+    }
+    
+    final DateTime now = DateTime.now();
+
+    // Jika event sudah berlalu (menggunakan waktu yang benar), jangan dijadwalkan
+    if (eventDateTime.isBefore(now)) return;
+
+    // ID Base Notifikasi: Menggunakan hashcode dari ID event agar setiap event unik
+    int idBase = event.id.hashCode;
+
+    // 1. Jadwal H-1 Hari
+    DateTime scheduledDayBefore = eventDateTime.subtract(const Duration(days: 1));
+    
+    // Hanya jadwalkan jika waktu mundur (H-1 Hari) masih di masa depan
+    if (scheduledDayBefore.isAfter(now)) {
+      NotificationService().scheduleEventNotification(
+        id: idBase + 1, // ID unik untuk pengingat H-1 Hari
+        title: "Pengingat Event: ${event.title}",
+        body: "Event akan dimulai besok di ${event.location}. Persiapkan diri Anda!",
+        scheduledTime: scheduledDayBefore,
+      );
+    }
+
+    // 2. Jadwal H-1 Jam
+    DateTime scheduledHourBefore = eventDateTime.subtract(const Duration(hours: 1));
+    
+    // Hanya jadwalkan jika waktu mundur (H-1 Jam) masih di masa depan
+    if (scheduledHourBefore.isAfter(now)) {
+      NotificationService().scheduleEventNotification(
+        id: idBase + 2, // ID unik untuk pengingat H-1 Jam
+        title: "Segera Dimulai: ${event.title}",
+        body: "Event akan dimulai dalam 1 jam lagi.",
+        scheduledTime: scheduledHourBefore,
+      );
+    }
+  }
+
 
   @override
   Widget build(BuildContext context) {
@@ -91,6 +151,12 @@ class _NotificationPageState extends State<NotificationPage> {
               setState(() {
                 _isNotificationEnabled = value;
               });
+              
+              // 💡 AKSI: Jika notifikasi dimatikan, batalkan semua notifikasi pending
+              if (!value) {
+                NotificationService().flutterLocalNotificationsPlugin.cancelAll();
+              }
+              
               ScaffoldMessenger.of(context).showSnackBar(
                 SnackBar(
                   content: Text(value ? "Notifikasi diaktifkan." : "Notifikasi dinonaktifkan."),
@@ -147,6 +213,14 @@ class _NotificationPageState extends State<NotificationPage> {
         final List<EventModel> events = snapshot.data!.docs.map((doc) {
           return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
         }).toList();
+        
+        // 💡 PENJADWALAN NOTIFIKASI
+        // Jalankan logika penjadwalan untuk setiap event yang dimuat jika notif aktif
+        if (_isNotificationEnabled) {
+          for (var event in events) {
+            _scheduleNotificationsForEvent(event);
+          }
+        }
 
         // Tampilkan daftar event
         return ListView.builder(
