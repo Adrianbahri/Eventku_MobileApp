@@ -7,6 +7,8 @@ import 'profile_page.dart';
 import 'notification_page.dart';
 import '../Fungsi/app_colors.dart';
 import 'ticket_page.dart';
+import 'favorite_page.dart';
+
 
 // --- Halaman Utama (Dashboard) ---
 class HomePage extends StatefulWidget {
@@ -523,15 +525,17 @@ class CustomFloatingNavBar extends StatelessWidget {
                 _buildNavIcon(icon: Icons.home_filled, isActive: true, onTap: () {}),
                 
                 // FAVORIT (Favorite)
-                _buildNavIcon(
-                  icon: Icons.favorite_border, 
-                  isActive: false, 
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Navigasi ke Halaman Tiket/Daftar Event")),
-                    );
-                  }
-                ),
+_buildNavIcon(
+  icon: Icons.favorite_border, 
+  isActive: false, 
+  onTap: () {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const FavoritePage()),
+    );
+  }
+),
+
 
                 // TIKET (Tickets)
                 _buildNavIcon(
