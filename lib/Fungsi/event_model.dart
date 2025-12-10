@@ -8,9 +8,12 @@ class EventModel {
   final String description;
   final String imagePath;
   final String userId;
-  final String? registrationLink; // 🌟 PROPERTI BARU
-  // Field opsional untuk sorting
+  final String? registrationLink;
   final Timestamp? timestamp; 
+  
+  // 💡 PROPERTI BARU UNTUK GOOGLE MAPS
+  final double? eventLat; // Latitude lokasi event
+  final double? eventLng; // Longitude lokasi event
 
   EventModel({
     required this.id,
@@ -20,11 +23,14 @@ class EventModel {
     required this.description,
     required this.imagePath,
     required this.userId,
-    this.registrationLink, // 🌟 Diperlukan di konstruktor
-    this.timestamp, // Dibuat opsional karena bisa null saat membaca dari toMap()
+    this.registrationLink,
+    this.timestamp,
+    // 💡 Tambahkan di konstruktor
+    this.eventLat,
+    this.eventLng,
   });
 
-  // 🛠️ Metode untuk Mengirim Data ke Firestore (Create/Update)
+  // Metode untuk Mengirim Data ke Firestore (Create/Update)
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -33,15 +39,16 @@ class EventModel {
       'description': description,
       'imagePath': imagePath,
       'userId': userId,
-      'registrationLink': registrationLink, // 🌟 Tambahkan ke map
-      // Gunakan serverTimestamp() untuk mencatat waktu yang akurat
+      'registrationLink': registrationLink,
       'timestamp': FieldValue.serverTimestamp(), 
+      // 💡 Tambahkan field Maps ke Map
+      'eventLat': eventLat,
+      'eventLng': eventLng,
     };
   }
 
-  // 📥 Factory untuk Menerima Data dari Firestore (Read)
+  // Factory untuk Menerima Data dari Firestore (Read)
   factory EventModel.fromMap(Map<String, dynamic> map, String documentId) {
-    // Pastikan casting aman dan berikan nilai default jika null
     return EventModel(
       id: documentId,
       title: map['title'] ?? '',
@@ -50,9 +57,11 @@ class EventModel {
       description: map['description'] ?? '',
       imagePath: map['imagePath'] ?? '',
       userId: map['userId'] ?? '',
-      registrationLink: map['registrationLink'] as String?, // 🌟 Ambil link
-      // Ambil timestamp dari Firestore. Jika tidak ada, biarkan null.
-      timestamp: map['timestamp'] as Timestamp?, 
+      registrationLink: map['registrationLink'] as String?,
+      timestamp: map['timestamp'] as Timestamp?,
+      // 💡 Baca field Maps dari Map (gunakan as double? untuk nullable double)
+      eventLat: map['eventLat'] as double?,
+      eventLng: map['eventLng'] as double?,
     );
   }
 }

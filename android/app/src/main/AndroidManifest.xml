@@ -15,6 +15,9 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:usesCleartextTraffic="true"> 
+        <meta-data
+        android:name="com.google.android.geo.API_KEY"
+        android:value="AIzaSyCALEINfUjR9VDyyNLbvJ4cdBARglUJm1c"/>
         <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationReceiver" />
             <receiver android:exported="false" android:name="com.dexterous.flutterlocalnotifications.ScheduledNotificationBootReceiver">
                 <intent-filter>

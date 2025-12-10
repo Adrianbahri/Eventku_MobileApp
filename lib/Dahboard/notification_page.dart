@@ -165,7 +165,7 @@ class _NotificationPageState extends State<NotificationPage> {
               );
             },
             activeTrackColor: AppColors.primary.withOpacity(0.5),
-            activeColor: AppColors.primary,
+            activeThumbColor: AppColors.primary,
           ),
         ],
       ),

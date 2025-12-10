@@ -6,6 +6,7 @@ import 'add_event_page.dart';
 import 'profile_page.dart';
 import 'notification_page.dart';
 import '../Fungsi/app_colors.dart';
+import 'ticket_page.dart';
 
 // --- Halaman Utama (Dashboard) ---
 class HomePage extends StatefulWidget {
@@ -331,7 +332,7 @@ class CustomHeader extends StatelessWidget {
   final VoidCallback onEventAdded;
   final TextEditingController searchController; 
 
-  const CustomHeader({
+  const CustomHeader({super.key, 
     required this.onEventAdded,
     required this.searchController,
   });
@@ -527,7 +528,7 @@ class CustomFloatingNavBar extends StatelessWidget {
                   isActive: false, 
                   onTap: () {
                     ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Navigasi ke Halaman Favorit")),
+                      const SnackBar(content: Text("Navigasi ke Halaman Tiket/Daftar Event")),
                     );
                   }
                 ),
@@ -536,11 +537,12 @@ class CustomFloatingNavBar extends StatelessWidget {
                 _buildNavIcon(
                   icon: Icons.confirmation_number_outlined, 
                   isActive: false, 
-                  onTap: () {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text("Navigasi ke Halaman Tiket/Daftar Event")),
-                    );
-                  }
+                    onTap: () {
+                        Navigator.push(
+                            context,
+                            MaterialPageRoute(builder: (context) => const TicketPage()),
+                        );
+                    }
                 ),
               ],
             ),
