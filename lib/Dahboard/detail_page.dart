@@ -1,17 +1,58 @@
 import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; 
-import 'package:google_maps_flutter/google_maps_flutter.dart'; // 💡 Import Google Maps
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Fungsi/event_model.dart';
 import '../Fungsi/app_colors.dart';
+import '../Fungsi/favorite_helper.dart'; // <<< Import FavoriteHelper
 
-class DetailPage extends StatelessWidget {
+// --- Halaman Detail (StatefulWidget) ---
+class DetailPage extends StatefulWidget {
   final EventModel event;
   const DetailPage({super.key, required this.event});
 
-  final String _currentUserId = 'user_id_example_123'; 
+  @override
+  State<DetailPage> createState() => _DetailPageState();
+}
 
-  // FUNGSI: Membuka URL pendaftaran di browser (Tidak diubah)
+class _DetailPageState extends State<DetailPage> {
+  final String _currentUserId = 'user_id_example_123'; 
+  bool _isFavorite = false; // <<< Status Favorit
+
+  @override
+  void initState() {
+    super.initState();
+    _checkFavoriteStatus();
+  }
+
+  // Cek status favorit saat halaman dimuat
+  Future<void> _checkFavoriteStatus() async {
+    final bool status = await FavoriteHelper.isFavorite(widget.event.id);
+    setState(() {
+      _isFavorite = status;
+    });
+  }
+
+  // FUNGSI BARU: Toggle status favorit
+  Future<void> _toggleFavorite() async {
+    await FavoriteHelper.toggleFavorite(widget.event.id);
+    final bool status = await FavoriteHelper.isFavorite(widget.event.id);
+    setState(() {
+      _isFavorite = status;
+    });
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_isFavorite ? '✨ Event ditambahkan ke Favorit!' : '🗑️ Event dihapus dari Favorit.'),
+          backgroundColor: _isFavorite ? AppColors.primary : Colors.grey,
+        ),
+      );
+    }
+  }
+
+
+  // FUNGSI: Membuka URL pendaftaran di browser
   Future<void> _launchUrl(BuildContext context, String? urlString) async {
     // ... kode launchUrl yang sudah ada ...
     if (urlString == null || urlString.isEmpty) {
@@ -32,9 +73,8 @@ class DetailPage extends StatelessWidget {
     }
   }
 
-  // 💡 FUNGSI BARU: Meluncurkan Aplikasi Google Maps Native
+  // FUNGSI BARU: Meluncurkan Aplikasi Google Maps Native
   Future<void> _openGoogleMaps(BuildContext context, double lat, double lng, String label) async {
-    // Menggunakan schema 'geo:' untuk membuka Maps native
     final geoUrl = Uri.parse('geo:$lat,$lng?q=$lat,$lng($label)');
 
     if (await canLaunchUrl(geoUrl)) {
@@ -48,10 +88,9 @@ class DetailPage extends StatelessWidget {
     }
   }
 
-  // FUNGSI: Mendaftar di Firestore lalu membuka URL (Tidak diubah)
+  // FUNGSI: Mendaftar di Firestore lalu membuka URL
   Future<void> _registerAndLaunchUrl(BuildContext context) async {
-    // ... kode registrasi ke Firestore yang sudah ada ...
-    if (event.registrationLink == null || event.registrationLink!.isEmpty) {
+    if (widget.event.registrationLink == null || widget.event.registrationLink!.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Link pendaftaran belum tersedia!')),
       );
@@ -63,8 +102,8 @@ class DetailPage extends StatelessWidget {
       
       Map<String, dynamic> registrationData = {
         'userId': _currentUserId,
-        'eventId': event.id, 
-        'eventTitle': event.title,
+        'eventId': widget.event.id, 
+        'eventTitle': widget.event.title,
         'registrationDate': FieldValue.serverTimestamp(),
         'status': 'registered',
       };
@@ -74,13 +113,13 @@ class DetailPage extends StatelessWidget {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('🎉 Berhasil Mendaftar! Membuka link...'),
+            content: Text('✅ Berhasil Mendaftar! Membuka link...'),
             backgroundColor: Colors.green,
           ),
         );
       }
 
-      await _launchUrl(context, event.registrationLink);
+      await _launchUrl(context, widget.event.registrationLink);
       
     } catch (e) {
       if (context.mounted) {
@@ -91,16 +130,15 @@ class DetailPage extends StatelessWidget {
           ),
         );
       }
-      await _launchUrl(context, event.registrationLink);
+      await _launchUrl(context, widget.event.registrationLink);
     }
   }
 
-  // WIDGET PEMBANTU: Menampilkan gambar jaringan atau fallback (Tidak diubah)
+  // WIDGET PEMBANTU: Menampilkan gambar jaringan atau fallback
   Widget _buildEventImage(double height) {
-    // ... kode yang sudah ada ...
-    final bool isNetworkImage = event.imagePath.startsWith('http');
+    final bool isNetworkImage = widget.event.imagePath.startsWith('http');
     
-    if (!isNetworkImage || event.imagePath.isEmpty) {
+    if (!isNetworkImage || widget.event.imagePath.isEmpty) {
       return Container(
         height: height,
         color: Colors.grey[300],
@@ -111,7 +149,7 @@ class DetailPage extends StatelessWidget {
     }
 
     return Image.network(
-      event.imagePath,
+      widget.event.imagePath,
       fit: BoxFit.cover,
       height: height,
       errorBuilder: (context, error, stackTrace) {
@@ -140,7 +178,7 @@ class DetailPage extends StatelessWidget {
     );
   }
 
-  // WIDGET PEMBANTU: Tombol Close (Tidak diubah)
+  // WIDGET PEMBANTU: Tombol Close
   Widget _buildCloseButton(BuildContext context) {
     return Positioned(
       top: 50, 
@@ -159,13 +197,13 @@ class DetailPage extends StatelessWidget {
     );
   }
 
-  // WIDGET PEMBANTU: Tombol Aksi (Simpan & Daftar) (Tidak diubah, memanggil fungsi registrasi)
+  // WIDGET PEMBANTU: Tombol Aksi (Simpan & Daftar) (Diperbarui)
   Widget _buildActionButtons(BuildContext context) {
-    final bool isRegistrationLinkAvailable = event.registrationLink != null && event.registrationLink!.isNotEmpty;
+    final bool isRegistrationLinkAvailable = widget.event.registrationLink != null && widget.event.registrationLink!.isNotEmpty;
 
     return Row(
       children: [
-        // Tombol Simpan (Love / Bookmark)
+        // Tombol Simpan (Love / Bookmark) - Diperbarui
         Container(
           width: 50, 
           height: 50,
@@ -174,12 +212,12 @@ class DetailPage extends StatelessWidget {
             borderRadius: BorderRadius.circular(15),
           ),
           child: IconButton(
-            icon: const Icon(Icons.favorite_border, color: AppColors.primary, size: 24),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('Fitur Save Event belum diimplementasi')),
-              );
-            },
+            icon: Icon(
+              _isFavorite ? Icons.favorite : Icons.favorite_border, // <<< Ganti Ikon
+              color: _isFavorite ? Colors.red : AppColors.primary, // <<< Ganti Warna
+              size: 24
+            ),
+            onPressed: _toggleFavorite, // <<< Panggil fungsi toggle
           ),
         ),
 
@@ -211,10 +249,10 @@ class DetailPage extends StatelessWidget {
     );
   }
 
-  // 💡 WIDGET BARU: Menampilkan Peta Mini dan Tombol Aksi Lokasi
+  // WIDGET BARU: Menampilkan Peta Mini dan Tombol Aksi Lokasi
   Widget _buildLocationWidget(BuildContext context) {
     // Cek apakah koordinat tersedia
-    final bool hasCoordinates = event.eventLat != null && event.eventLng != null;
+    final bool hasCoordinates = widget.event.eventLat != null && widget.event.eventLng != null;
 
     if (!hasCoordinates) {
       return Padding(
@@ -226,7 +264,7 @@ class DetailPage extends StatelessWidget {
       );
     }
     
-    final LatLng eventLocation = LatLng(event.eventLat!, event.eventLng!);
+    final LatLng eventLocation = LatLng(widget.event.eventLat!, widget.event.eventLng!);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -239,7 +277,7 @@ class DetailPage extends StatelessWidget {
         
         // Peta Mini yang dapat diklik
         GestureDetector(
-          onTap: () => _openGoogleMaps(context, eventLocation.latitude, eventLocation.longitude, event.location),
+          onTap: () => _openGoogleMaps(context, eventLocation.latitude, eventLocation.longitude, widget.event.location),
           child: Container(
             height: 150,
             decoration: BoxDecoration(
@@ -259,7 +297,7 @@ class DetailPage extends StatelessWidget {
                       Marker(
                         markerId: const MarkerId('event_marker'),
                         position: eventLocation,
-                        infoWindow: InfoWindow(title: event.location),
+                        infoWindow: InfoWindow(title: widget.event.location),
                       ),
                     },
                     zoomControlsEnabled: false,
@@ -288,7 +326,7 @@ class DetailPage extends StatelessWidget {
     );
   }
 
-  // WIDGET PEMBANTU: Sheet Informasi Detail (Diubah untuk menampung Map Widget)
+  // WIDGET PEMBANTU: Sheet Informasi Detail
   Widget _buildInfoSheet(BuildContext context, double infoContainerHeight) {
     return Align(
       alignment: Alignment.bottomCenter,
@@ -312,12 +350,12 @@ class DetailPage extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // A. Tanggal & Judul & Lokasi (Tidak diubah)
-            Text(event.date, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 14)),
+            // A. Tanggal & Judul & Lokasi
+            Text(widget.event.date, style: const TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600, fontSize: 14)),
             const SizedBox(height: 8),
-            Text(event.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textDark, fontSize: 24, fontWeight: FontWeight.bold, height: 1.1)),
+            Text(widget.event.title, maxLines: 2, overflow: TextOverflow.ellipsis, style: const TextStyle(color: AppColors.textDark, fontSize: 24, fontWeight: FontWeight.bold, height: 1.1)),
             const SizedBox(height: 8),
-            Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(event.location, style: const TextStyle(color: Colors.grey, fontSize: 14))]),
+            Row(children: [const Icon(Icons.location_on, color: Colors.grey, size: 16), const SizedBox(width: 4), Text(widget.event.location, style: const TextStyle(color: Colors.grey, fontSize: 14))]),
             const SizedBox(height: 20),
 
             // D. Deskripsi Singkat
@@ -329,7 +367,7 @@ class DetailPage extends StatelessWidget {
                   children: [
                     // 1. Deskripsi Utama
                     Text(
-                      event.description,
+                      widget.event.description,
                       style: TextStyle(color: Colors.grey[600], height: 1.5, fontSize: 14),
                     ),
                     const SizedBox(height: 20),
@@ -354,8 +392,7 @@ class DetailPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final double screenHeight = MediaQuery.of(context).size.height;
     final double imageContainerHeight = screenHeight * 0.65;
-    // Tingkatkan infoContainerHeight agar dapat menampung peta
-    final double infoContainerHeight = screenHeight * 0.5; // Ditingkatkan dari 0.45 menjadi 0.5
+    final double infoContainerHeight = screenHeight * 0.5;
     
     return Scaffold(
       body: Stack(

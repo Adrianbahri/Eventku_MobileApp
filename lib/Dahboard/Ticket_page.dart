@@ -4,6 +4,8 @@ import 'package:add_2_calendar/add_2_calendar.dart';
 import '../Fungsi/event_model.dart'; 
 import '../Fungsi/app_colors.dart'; 
 import '../Fungsi/favorite_helper.dart';
+import '../Dahboard/favorite_page.dart';
+
 
 
 // WIDGET UTAMA: Halaman Daftar Tiket - STATEFUL
@@ -21,9 +23,26 @@ class _TicketPageState extends State<TicketPage> {
 
   // Menyimpan ID tiket yang dipilih
   final Set<String> _selectedTicketIds = {}; 
+  
 
   // Menyimpan data tiket dari StreamBuilder
   List<DocumentSnapshot>? _registeredTickets;
+
+  // ❤️ Menyimpan daftar favorit lokal
+  List<String> _favoriteIds = [];
+
+   @override
+  void initState() {
+    super.initState();
+    _loadFavorites();
+  }
+
+  void _loadFavorites() async {
+    final favs = await FavoriteHelper.getFavorites();
+    setState(() {
+      _favoriteIds = favs;
+    });
+  }
 
   // Toggle select / unselect tiket
   void _toggleSelection(String docId) {
@@ -198,26 +217,41 @@ class _TicketPageState extends State<TicketPage> {
               const SizedBox(height: 14),
 
               // Bagian ID dan QR Code
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const Text('ID Tiket:',
-                          style: TextStyle(fontSize: 12, color: Colors.grey)),
-                      Text(
-                        docId.substring(0, 8),
-                        style: const TextStyle(
-                          fontWeight: FontWeight.bold,
-                          fontSize: 16,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const Icon(Icons.qr_code, size: 40, color: AppColors.primary),
-                ],
-              ),
+Row(
+  children: [
+    // ❤️ Icon Favorite
+    IconButton(
+      icon: Icon(
+        _favoriteIds.contains(docId)
+            ? Icons.favorite
+            : Icons.favorite_border,
+        color: Colors.red,
+      ),
+      onPressed: () async {
+        await FavoriteHelper.toggleFavorite(docId);
+
+        final updated = await FavoriteHelper.getFavorites();
+        setState(() {
+          _favoriteIds = updated;
+        });
+
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              _favoriteIds.contains(docId)
+                  ? "Ditambahkan ke Favorit ❤️"
+                  : "Dihapus dari Favorit 💔",
+            ),
+          ),
+        );
+      },
+    ),
+
+    // QR Code tetap ada
+    const Icon(Icons.qr_code, size: 40, color: AppColors.primary),
+  ],
+),
+
             ],
           ),
         ),
@@ -242,6 +276,17 @@ class _TicketPageState extends State<TicketPage> {
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,
         actions: [
+          IconButton(
+  icon: const Icon(Icons.favorite),
+  onPressed: () {
+    Navigator.push(
+      context,
+MaterialPageRoute(builder: (context) => const FavoritePage()),
+
+    );
+  },
+),
+
           if (_selectedTicketIds.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.close),
