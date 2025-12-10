@@ -13,16 +13,17 @@ class TicketPage extends StatefulWidget {
 }
 
 class _TicketPageState extends State<TicketPage> {
-  // ⚠️ Ganti ini dengan ID pengguna aktual dari Firebase Auth
+
+  // ⚠️ ID User tetap perlu diganti ke Firebase Auth sebenarnya
   final String _currentUserId = 'user_id_example_123'; 
 
-  // State untuk menyimpan ID dokumen pendaftaran yang dipilih
+  // Menyimpan ID tiket yang dipilih
   final Set<String> _selectedTicketIds = {}; 
 
-  // 💡 STATE BARU: Menyimpan daftar DocumentSnapshot untuk diakses di luar StreamBuilder
+  // Menyimpan data tiket dari StreamBuilder
   List<DocumentSnapshot>? _registeredTickets;
 
-  // FUNGSI: Mengelola pemilihan tiket
+  // Toggle select / unselect tiket
   void _toggleSelection(String docId) {
     setState(() {
       if (_selectedTicketIds.contains(docId)) {
@@ -33,13 +34,11 @@ class _TicketPageState extends State<TicketPage> {
     });
   }
 
-  // 💡 FUNGSI DIPERBAIKI: Menambahkan Event ke Kalender (Sekarang menerima context)
+  // Tambahkan event ke kalender
   void _addToCalendar(BuildContext context, Map<String, dynamic> eventData) {
-    // ⚠️ Anda harus memastikan eventData memiliki data tanggal dan waktu yang akurat
     final String title = eventData['eventTitle'] ?? 'Event Tiket';
     final String location = eventData['eventLocation'] ?? 'Lokasi Tidak Diketahui'; 
     
-    // Placeholder waktu - Ganti dengan waktu event sesungguhnya dari Firestore
     final DateTime startTime = DateTime.now().add(const Duration(hours: 1)); 
     final DateTime endTime = startTime.add(const Duration(hours: 2));   
 
@@ -53,11 +52,11 @@ class _TicketPageState extends State<TicketPage> {
     
     Add2Calendar.addEvent2Cal(event);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Event "$title" ditambahkan ke Kalender!')),
+      SnackBar(content: Text('Event \"$title\" ditambahkan ke Kalender!')),
     );
   }
 
-  // FUNGSI: Menghapus Tiket yang dipilih dari Firestore
+  // Hapus tiket yang dipilih
   Future<void> _deleteSelectedTickets() async {
     if (_selectedTicketIds.isEmpty) return;
 
@@ -70,10 +69,8 @@ class _TicketPageState extends State<TicketPage> {
 
     await batch.commit();
 
-    // Reset selection state setelah penghapusan
     setState(() {
       _selectedTicketIds.clear();
-      // Tidak perlu reset _registeredTickets, StreamBuilder akan me-refresh.
     });
 
     if (mounted) {
@@ -82,21 +79,21 @@ class _TicketPageState extends State<TicketPage> {
       );
     }
   }
-  
-  // WIDGET PEMBANTU: Item Daftar Tiket (Tampilan Modern)
+
+  // 🌟 UI IMPROVEMENT: Card Tiket yang lebih modern
   Widget _buildTicketItem(BuildContext context, DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final docId = doc.id;
     final isSelected = _selectedTicketIds.contains(docId);
 
     final String title = data['eventTitle'] ?? 'Event Tidak Dikenal';
-    final String location = data['eventLocation'] ?? 'Lokasi Tidak Diketahui'; 
+    final String location = data['eventLocation'] ?? 'Lokasi Tidak Diketahui';
     final Timestamp registrationTimestamp = data['registrationDate'] ?? Timestamp.now();
-    final String formattedDate = registrationTimestamp.toDate().toString().split(' ')[0]; 
+    final String formattedDate = registrationTimestamp.toDate().toString().split(' ')[0];
 
     return GestureDetector(
       onLongPress: () => _toggleSelection(docId),
-      onTap: _selectedTicketIds.isNotEmpty 
+      onTap: _selectedTicketIds.isNotEmpty
           ? () => _toggleSelection(docId)
           : () => ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Membuka detail tiket: $title')),
@@ -104,30 +101,70 @@ class _TicketPageState extends State<TicketPage> {
       child: Container(
         margin: const EdgeInsets.only(left: 16, right: 16, top: 16),
         decoration: BoxDecoration(
-          color: isSelected ? AppColors.primary.withOpacity(0.15) : AppColors.textLight,
-          borderRadius: BorderRadius.circular(20),
-          border: isSelected ? Border.all(color: AppColors.primary, width: 2) : null,
-          boxShadow: isSelected 
-              ? [BoxShadow(color: AppColors.primary.withOpacity(0.2), blurRadius: 10)]
-              : [BoxShadow(color: Colors.grey.withOpacity(0.2), blurRadius: 8, offset: const Offset(0, 4))],
+          gradient: isSelected
+              ? LinearGradient(
+                  colors: [
+                    AppColors.primary.withOpacity(0.35),
+                    AppColors.primary.withOpacity(0.15)
+                  ],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                )
+              : LinearGradient(
+                  colors: [Colors.white, Colors.grey.shade100],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                ),
+          borderRadius: BorderRadius.circular(22),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black12.withOpacity(0.10),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+          border: isSelected
+              ? Border.all(color: AppColors.primary, width: 2)
+              : Border.all(color: Colors.grey.shade300, width: 1),
         ),
         child: Padding(
-          padding: const EdgeInsets.all(16.0),
+          padding: const EdgeInsets.all(18.0),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Judul & Lokasi
+
+              // Badge "Tiket Saya"
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.primary.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: const Text(
+                  "Tiket Saya",
+                  style: TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.bold,
+                    fontSize: 12,
+                  ),
+                ),
+              ),
+
+              const SizedBox(height: 12),
+
+              // Judul Event
               Text(
                 title,
                 style: const TextStyle(
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 20,
                   color: AppColors.textDark,
                 ),
               ),
+
               const SizedBox(height: 8),
 
-              // Detail Waktu/Lokasi
+              // Lokasi Event
               Row(
                 children: [
                   const Icon(Icons.location_on, color: AppColors.primary, size: 16),
@@ -135,37 +172,48 @@ class _TicketPageState extends State<TicketPage> {
                   Text(location, style: const TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
-              const SizedBox(height: 4),
+
+              const SizedBox(height: 6),
+
+              // Waktu Pendaftaran
               Row(
                 children: [
                   const Icon(Icons.access_time, color: AppColors.primary, size: 16),
                   const SizedBox(width: 4),
-                  Text('Terdaftar: $formattedDate', style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                  Text('Terdaftar: $formattedDate',
+                      style: const TextStyle(color: Colors.grey, fontSize: 14)),
                 ],
               ),
-              
-              const SizedBox(height: 10),
-              
-              // Pembatas untuk Tampilan Tiket
+
+              const SizedBox(height: 14),
+
+              // Garis Dashed
               CustomPaint(
                 painter: DashedBorderPainter(),
                 child: const SizedBox(height: 1),
               ),
-              
-              const SizedBox(height: 10),
 
-              // ID dan QR Code Placeholder
+              const SizedBox(height: 14),
+
+              // Bagian ID dan QR Code
               Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
                   Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('ID Tiket:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
-                      Text(docId.substring(0, 8), style: const TextStyle(fontWeight: FontWeight.w600)),
+                      const Text('ID Tiket:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        docId.substring(0, 8),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
                     ],
                   ),
-                  const Icon(Icons.qr_code, size: 36, color: AppColors.primary),
+                  const Icon(Icons.qr_code, size: 40, color: AppColors.primary),
                 ],
               ),
             ],
@@ -189,7 +237,7 @@ class _TicketPageState extends State<TicketPage> {
         title: Text(_selectedTicketIds.isEmpty 
             ? 'Tiket Saya' 
             : '${_selectedTicketIds.length} Dipilih'),
-        backgroundColor: _selectedTicketIds.isEmpty ? AppColors.primary : AppColors.primary.withOpacity(0.8),
+        backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,
         actions: [
           if (_selectedTicketIds.isNotEmpty)
@@ -197,7 +245,7 @@ class _TicketPageState extends State<TicketPage> {
               icon: const Icon(Icons.close),
               onPressed: () {
                  setState(() {
-                    _selectedTicketIds.clear(); // Tombol Batal/Close Selection
+                    _selectedTicketIds.clear();
                   });
               },
             ),
@@ -210,10 +258,12 @@ class _TicketPageState extends State<TicketPage> {
             return const Center(child: CircularProgressIndicator());
           }
           if (snapshot.hasError) {
-            return Center(child: Text('Terjadi kesalahan: ${snapshot.error}', textAlign: TextAlign.center));
+            return Center(
+              child: Text('Terjadi kesalahan: ${snapshot.error}',
+                  textAlign: TextAlign.center),
+            );
           }
           if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
-            // 💡 PENTING: Jika data kosong, pastikan state list juga null/kosong
             _registeredTickets = null;
             return Center(
               child: Column(
@@ -221,13 +271,13 @@ class _TicketPageState extends State<TicketPage> {
                 children: [
                   Icon(Icons.event_busy, size: 80, color: Colors.grey[300]),
                   const SizedBox(height: 16),
-                  const Text('Anda belum mendaftar untuk event apa pun.', style: TextStyle(color: Colors.grey)),
+                  const Text('Anda belum mendaftar untuk event apa pun.',
+                      style: TextStyle(color: Colors.grey)),
                 ],
               ),
             );
           }
 
-          // 💡 FIX CAKUPAN (SCOPE): Simpan data ke state variable
           final registeredTickets = snapshot.data!.docs;
           _registeredTickets = registeredTickets; 
           
@@ -241,8 +291,6 @@ class _TicketPageState extends State<TicketPage> {
         },
       ),
       
-      // BOTTOM ACTION BAR untuk opsi Kalender dan Hapus
-      // 💡 FIX CAKUPAN (SCOPE): Menggunakan _registeredTickets dan mengecek null
       bottomSheet: _selectedTicketIds.isNotEmpty && _registeredTickets != null 
           ? Container(
               padding: const EdgeInsets.all(16),
@@ -255,29 +303,31 @@ class _TicketPageState extends State<TicketPage> {
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceAround,
                 children: [
+                  
                   // Tombol Hapus
                   TextButton.icon(
                     onPressed: _deleteSelectedTickets,
                     icon: const Icon(Icons.delete, color: Colors.red),
-                    label: const Text('Hapus Tiket', style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
+                    label: const Text('Hapus Tiket',
+                        style: TextStyle(color: Colors.red, fontWeight: FontWeight.bold)),
                   ),
 
-                  // Tombol Tambahkan ke Kalender (Hanya jika 1 tiket dipilih)
+                  // Tambah ke kalender (1 tiket)
                   if (_selectedTicketIds.length == 1)
                     TextButton.icon(
                       onPressed: () {
-                        // Cari data tiket yang dipilih dari state variable
                         final selectedDoc = _registeredTickets!.firstWhere(
                           (doc) => doc.id == _selectedTicketIds.first,
                         );
-                        // 💡 FIX: Panggil _addToCalendar dengan context
                         _addToCalendar(context, selectedDoc.data() as Map<String, dynamic>); 
                       },
                       icon: const Icon(Icons.calendar_month, color: AppColors.primary),
-                      label: const Text('Tambah ke Kalender', style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.w600)),
+                      label: const Text('Tambah ke Kalender',
+                          style: TextStyle(
+                              color: AppColors.primary, fontWeight: FontWeight.w600)),
                     ),
-                  
-                  // Tombol Batalkan Seleksi
+
+                  // Batal
                   TextButton(
                     onPressed: () {
                       setState(() {
@@ -294,7 +344,7 @@ class _TicketPageState extends State<TicketPage> {
   }
 }
 
-// Custom Painter untuk Garis Putus-putus (Dashed Border) - Tidak diubah
+// Garis putus-putus
 class DashedBorderPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
