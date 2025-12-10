@@ -9,25 +9,25 @@
 
 ## ✨ Deskripsi Proyek
 
-[cite_start]**EventKu (EventHub)** adalah aplikasi *mobile* yang dikembangkan menggunakan **Flutter** untuk menjadi **pusat informasi (aggregator)** terpusat bagi berbagai acara kampus seperti seminar, *workshop*, konser, dan kompetisi[cite: 4, 5].
+**EventKu (EventHub)** adalah aplikasi *mobile* yang dikembangkan menggunakan **Flutter** untuk menjadi **pusat informasi (aggregator)** terpusat bagi berbagai acara kampus seperti seminar, *workshop*, konser, dan kompetisi[cite: 4, 5].
 
-[cite_start]Proyek ini mengatasi masalah informasi acara yang tersebar di berbagai platform media sosial dengan menyajikan semuanya dalam satu antarmuka yang mudah diakses dan interaktif[cite: 5].
+Proyek ini mengatasi masalah informasi acara yang tersebar di berbagai platform media sosial dengan menyajikan semuanya dalam satu antarmuka yang mudah diakses dan interaktif[cite: 5].
 
 Aplikasi ini melayani dua jenis pengguna utama:
-1.  [cite_start]**Pengguna (User):** Mahasiswa yang mencari, melihat detail, mendaftar, dan mengatur pengingat untuk acara yang diminati[cite: 8, 53].
-2.  [cite_start]**Admin:** Pengguna khusus yang mengelola (CRUD) data acara dan kategori melalui panel admin terpisah (menggunakan *backend* yang sama)[cite: 9, 62].
+1.  **Pengguna (User):** Mahasiswa yang mencari, melihat detail, mendaftar, dan mengatur pengingat untuk acara yang diminati[cite: 8, 53].
+2.  **Admin:** Pengguna khusus yang mengelola (CRUD) data acara dan kategori melalui panel admin terpisah (menggunakan *backend* yang sama)[cite: 9, 62].
 
 ## 🌟 Fitur Utama
 
 Berdasarkan fungsionalitas yang didefinisikan dalam Use Case Diagram:
 
-* [cite_start]**Pencarian & Filter Acara:** Jelajahi daftar acara, cari acara spesifik berdasarkan kata kunci, atau saring berdasarkan kategori (Akademik, Olahraga, Seni, dll.)[cite: 29, 85].
-* [cite_start]**Detail Acara Lengkap:** Lihat informasi rinci seperti deskripsi, pembicara, lokasi, harga, dan tautan pendaftaran eksternal[cite: 30, 33].
-* [cite_start]**Pengingat Otomatis:** Atur notifikasi **H-1** untuk acara yang diminati (membutuhkan Login/Registrasi)[cite: 31, 34].
-* [cite_start]**Autentikasi Aman:** Login/Registrasi untuk mengakses fitur personal[cite: 34].
+* **Pencarian & Filter Acara:** Jelajahi daftar acara, cari acara spesifik berdasarkan kata kunci, atau saring berdasarkan kategori (Akademik, Olahraga, Seni, dll.)[cite: 29, 85].
+* **Detail Acara Lengkap:** Lihat informasi rinci seperti deskripsi, pembicara, lokasi, harga, dan tautan pendaftaran eksternal[cite: 30, 33].
+* **Pengingat Otomatis:** Atur notifikasi **H-1** untuk acara yang diminati (membutuhkan Login/Registrasi)[cite: 31, 34].
+* **Autentikasi Aman:** Login/Registrasi untuk mengakses fitur personal[cite: 34].
 * **Modul Admin:** Fungsionalitas lengkap untuk Admin, termasuk:
-    * [cite_start]Mengelola Data Acara (Buat, Baca, Ubah, Hapus)[cite: 35].
-    * [cite_start]Mengelola Kategori Acara[cite: 37].
+    * Mengelola Data Acara (Buat, Baca, Ubah, Hapus)[cite: 35].
+    * Mengelola Kategori Acara[cite: 37].
 
 ## 🛠️ Memulai (Getting Started)
 
@@ -55,7 +55,7 @@ Aplikasi ini dibangun dengan Flutter. Untuk menjalankan proyek secara lokal, pas
     ```
 
 3.  **Konfigurasi Backend:**
-    [cite_start]EventKu menggunakan **Firebase/Supabase** [cite: 153] untuk data.
+    EventKu menggunakan **Firebase/Supabase** [cite: 153] untuk data.
     * Siapkan proyek baru di platform pilihan Anda.
     * Buat *file* `lib/firebase_options.dart` atau konfigurasi serupa dengan kunci dan kredensial API Anda. (Anda mungkin perlu membuat *file* `.env` untuk *key* sensitif.)
 
@@ -67,17 +67,17 @@ Aplikasi ini dibangun dengan Flutter. Untuk menjalankan proyek secara lokal, pas
 
 ## 📂 Struktur Data (Class Diagram Overview)
 
-[cite_start]Aplikasi ini berpusat pada entitas utama berikut[cite: 39, 55, 63, 78, 86]:
+Aplikasi ini berpusat pada entitas utama berikut[cite: 39, 55, 63, 78, 86]:
 
 | Class | Peran | Atribut Kunci |
 | :--- | :--- | :--- |
-| **User** | Mewakili pengguna aplikasi umum. | [cite_start]`userId`, `name`, `email` [cite: 41, 42, 43] |
-| **Admin** | [cite_start]Turunan dari User, mengelola data acara dan kategori[cite: 61, 62]. | [cite_start]`adminId`, `role` [cite: 56, 118] |
-| **Event** | [cite_start]Data inti acara (seminar, workshop, dll.)[cite: 76]. | [cite_start]`eventId`, `title`, `date`, `location`, `price` [cite: 65, 66, 68, 69, 72] |
-| **Category** | [cite_start]Digunakan Admin untuk mengelompokkan acara[cite: 85]. | [cite_start]`categoryId`, `name` [cite: 80, 81] |
-| **Notification** | [cite_start]Digunakan untuk mengirim pengingat H-1 ke User[cite: 94]. | [cite_start]`notificationId`, `userId`, `eventId`, `sendDate` [cite: 88, 89, 90, 92] |
+| **User** | Mewakili pengguna aplikasi umum. | `userId`, `name`, `email` [cite: 41, 42, 43] |
+| **Admin** | Turunan dari User, mengelola data acara dan kategori[cite: 61, 62]. | `adminId`, `role` [cite: 56, 118] |
+| **Event** | Data inti acara (seminar, workshop, dll.)[cite: 76]. | `eventId`, `title`, `date`, `location`, `price` [cite: 65, 66, 68, 69, 72] |
+| **Category** | Digunakan Admin untuk mengelompokkan acara[cite: 85]. | `categoryId`, `name` [cite: 80, 81] |
+| **Notification** | Digunakan untuk mengirim pengingat H-1 ke User[cite: 94]. | `notificationId`, `userId`, `eventId`, `sendDate` [cite: 88, 89, 90, 92] |
 
-[cite_start]*Terdapat hubungan **Many-to-Many** antara User dan Event (User dapat mendaftar banyak event, dan event dapat diikuti banyak user).* [cite: 96]
+*Terdapat hubungan **Many-to-Many** antara User dan Event (User dapat mendaftar banyak event, dan event dapat diikuti banyak user).* [cite: 96]
 
 ## 🤝 Kontribusi (Contributing)
 
@@ -90,7 +90,7 @@ Kami menyambut kontribusi kode, laporan *bug*, atau saran fitur!
 
 ## ✍️ Lisensi
 
-[cite_start]Proyek ini berada di bawah **Lisensi MIT** [cite: 96, 4] - lihat *file* [LICENSE](LICENSE) untuk detail selengkapnya.
+Proyek ini berada di bawah **Lisensi MIT** [cite: 96, 4] - lihat *file* [LICENSE](LICENSE) untuk detail selengkapnya.
 
 ---
 
