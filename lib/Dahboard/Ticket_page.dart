@@ -49,7 +49,7 @@ class _TicketPageState extends State<TicketPage> {
     
     Add2Calendar.addEvent2Cal(event);
     ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text('Event \"$title\" ditambahkan ke Kalender!')),
+      SnackBar(content: Text('Event "${title}" ditambahkan ke Kalender!')),
     );
   }
 
