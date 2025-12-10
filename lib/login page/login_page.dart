@@ -58,7 +58,7 @@ class LoginPage extends StatelessWidget {
                       const SizedBox(height: 40),
 
                       // FOOTER: NAVIGASI KE REGISTER
-                      const _Footer(),
+                      // const _Footer(),
                     ],
                   ),
                 ),
@@ -406,25 +406,25 @@ class _SocialLoginState extends State<_SocialLogin> {
 // ===========================================
 // 4. WIDGET PENDUKUNG: Footer Navigasi
 // ===========================================
-class _Footer extends StatelessWidget {
-  const _Footer();
+// class _Footer extends StatelessWidget {
+//   const _Footer();
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text("Don't have an account? ", style: TextStyle(color: Colors.grey)),
-        GestureDetector(
-          onTap: () {
-            Navigator.pushNamed(context, '/register');
-          },
-          child: const Text(
-            "Register",
-            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ],
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Row(
+//       mainAxisAlignment: MainAxisAlignment.center,
+//       children: [
+//         const Text("Don't have an account? ", style: TextStyle(color: Colors.grey)),
+//         GestureDetector(
+//           onTap: () {
+//             Navigator.pushNamed(context, '/register');
+//           },
+//           child: const Text(
+//             "Register",
+//             style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+// }

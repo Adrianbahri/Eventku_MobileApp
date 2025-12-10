@@ -1,3 +1,5 @@
+// file: profile_page.dart (KODE LENGKAP)
+
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -290,7 +292,7 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// --- WIDGET LIST EVENT PRIBADI (TIDAK ADA PERUBAHAN LOGIKA FIREBASE) ---
+// --- WIDGET LIST EVENT PRIBADI (SUDAH DIPERBAIKI) ---
 class _UserEventList extends StatelessWidget {
   final String currentUserId;
   const _UserEventList({required this.currentUserId});
@@ -315,21 +317,31 @@ class _UserEventList extends StatelessWidget {
     ) ?? false;
   }
 
+  // 🔥 FUNGSI DELETE DENGAN PERIKSA context.mounted
   Future<void> _deleteEvent(BuildContext context, String eventId, String eventTitle) async {
-    final shouldDelete = await _showDeleteConfirmationDialog(context, eventTitle);
+    // Ambil BuildContext lokal yang aman sebelum operasi asinkron
+    final localContext = context; 
+
+    final shouldDelete = await _showDeleteConfirmationDialog(localContext, eventTitle);
 
     if (!shouldDelete) return;
 
     try {
       await FirebaseFirestore.instance.collection('events').doc(eventId).delete();
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Event berhasil dihapus.'), backgroundColor: AppColors.success),
-      );
+      // ✅ Cek apakah context masih mounted setelah await
+      if (localContext.mounted) {
+        ScaffoldMessenger.of(localContext).showSnackBar(
+          const SnackBar(content: Text('Event berhasil dihapus.'), backgroundColor: AppColors.success),
+        );
+      }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Gagal menghapus event: $e'), backgroundColor: AppColors.error),
-      );
+      // ✅ Cek di catch block juga
+      if (localContext.mounted) {
+        ScaffoldMessenger.of(localContext).showSnackBar(
+          SnackBar(content: Text('Gagal menghapus event: $e'), backgroundColor: AppColors.error),
+        );
+      }
     }
   }
 
@@ -375,13 +387,13 @@ class _UserEventList extends StatelessWidget {
 
             return Card(
               margin: const EdgeInsets.symmetric(vertical: 8),
-              elevation: 0, // Elevation dipindah ke Box Shadow pada Container
+              elevation: 0, 
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
               child: Container(
                 decoration: BoxDecoration(
                   color: AppColors.textLight,
                   borderRadius: BorderRadius.circular(15),
-                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: const Offset(0, 3))], // Soft Shadow
+                  boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 8, offset: const Offset(0, 3))], 
                 ),
                 child: ListTile(
                   contentPadding: const EdgeInsets.all(10),
@@ -404,6 +416,7 @@ class _UserEventList extends StatelessWidget {
                   subtitle: Text("${event.date} | ${event.location}"),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: AppColors.error),
+                    // Menggunakan BuildContext dari ListTile untuk panggilan _deleteEvent
                     onPressed: () => _deleteEvent(context, event.id, event.title), 
                   ),
                   onTap: () {

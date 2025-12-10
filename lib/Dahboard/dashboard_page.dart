@@ -35,13 +35,21 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onSearchChanged() {
+    // Ini aman karena dipanggil sinkronus dari listener TextEditingController
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
     });
   }
 
+  // FUNGSI PERBAIKAN: Dipanggil dari CustomFloatingNavBar setelah AddEventPage ditutup
   void refreshUI() {
-    setState(() {});
+    // PERBAIKAN: Hanya panggil setState jika widget masih mounted
+    if (mounted) { 
+      setState(() {});
+      debugPrint("UI Refreshed: HomePage is mounted.");
+    } else {
+      debugPrint("UI Refresh Skipped: HomePage is not mounted (disposed).");
+    }
   }
 
   @override
@@ -54,6 +62,7 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // Meneruskan fungsi refreshUI yang sudah diperbaiki
             CustomHeader(
               onEventAdded: refreshUI,
               searchController: _searchController,
@@ -75,7 +84,7 @@ class _HomePageState extends State<HomePage> {
                     padding: EdgeInsets.only(
                       left: 24,
                       right: 24,
-                      top: 20, // Padding atas setelah Divider
+                      top: 20, 
                       bottom: 10,
                     ),
                     child: Text(
@@ -94,7 +103,8 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      bottomNavigationBar: CustomFloatingNavBar(onAddEvent: refreshUI),
+      // Meneruskan fungsi refreshUI yang sudah diperbaiki
+      bottomNavigationBar: CustomFloatingNavBar(onAddEvent: refreshUI), 
     );
   }
 
@@ -449,12 +459,12 @@ class CustomFloatingNavBar extends StatelessWidget {
     final bool isSmallScreen = screenWidth < 360;
 
     // Properti Responsif untuk Tombol 'Add Event' (Dibuat Lebih Kecil)
-    final double horizontalPadding = isSmallScreen ? 10 : 20; // Diperkecil dari 12/24 menjadi 10/20
-    final double iconSize = isSmallScreen ? 18 : 22;       // Ikon 18 (dari 20/24)
-    final double fontSize = isSmallScreen ? 13 : 15;       // Font 13 (dari 14/16)
+    final double horizontalPadding = isSmallScreen ? 10 : 20; 
+    final double iconSize = isSmallScreen ? 18 : 22;       
+    final double fontSize = isSmallScreen ? 13 : 15;       
     
     // Lebar Grup Ikon Navigasi (Diperkecil)
-    final double navGroupWidth = isSmallScreen ? 130 : 140; // Diperkecil dari 150 menjadi 130/140
+    final double navGroupWidth = isSmallScreen ? 130 : 140; 
 
     return Container(
       margin: const EdgeInsets.only(left: 20, right: 20, bottom: 20),
@@ -473,17 +483,20 @@ class CustomFloatingNavBar extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.start,
         children: [
-          // 1. Tombol Add Event (Diperkecil)
+          // 1. Tombol Add Event 
           InkWell(
             onTap: () async {
+              // Navigasi ke AddEventPage, menunggu hasilnya
               await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddEventPage()),
               );
+              // Panggil callback onAddEvent (yaitu refreshUI)
+              // Callback ini sekarang aman karena refreshUI() di HomePage sudah dicek 'mounted'.
               onAddEvent(); 
             },
             child: Container(
-              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 10), // Vertikal padding juga dikurangi
+              padding: EdgeInsets.symmetric(horizontal: horizontalPadding, vertical: 10), 
               decoration: BoxDecoration(
                 color: AppColors.primary, 
                 borderRadius: BorderRadius.circular(30),
@@ -498,7 +511,7 @@ class CustomFloatingNavBar extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.add, color: Colors.white, size: iconSize),
-                  const SizedBox(width: 4), // Jarak antar ikon dan teks dikurangi (dari 5 menjadi 4)
+                  const SizedBox(width: 4), 
                   Text(
                     "Add Event",
                     style: TextStyle(
@@ -515,9 +528,9 @@ class CustomFloatingNavBar extends StatelessWidget {
           // Jarak fleksibel
           const Spacer(),
 
-          // 2. Kelompok Ikon Navigasi (Diperkecil lebarnya)
+          // 2. Kelompok Ikon Navigasi 
           SizedBox(
-            width: navGroupWidth, // Lebar diperkecil (130/140) untuk mengurangi jarak antar ikon
+            width: navGroupWidth, 
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: [

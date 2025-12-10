@@ -53,7 +53,7 @@ class RegisterPage extends StatelessWidget {
                       const SizedBox(height: 40),
                       
                       // FOOTER NAVIGASI KE LOGIN
-                      const _Footer(),
+                      // const _Footer(),
                     ],
                   ),
                 ),
@@ -267,26 +267,26 @@ class _RegistFormState extends State<_RegistForm> {
 // ===========================================
 // 3. WIDGET PENDUKUNG: Footer Navigasi
 // ===========================================
-class _Footer extends StatelessWidget {
-  const _Footer();
+// class _Footer extends StatelessWidget {
+//   const _Footer();
 
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        const Text("Do you have an account? ", style: TextStyle(color: Colors.grey)),
-        GestureDetector(
-          onTap: () {
-            // Menggunakan pop untuk kembali ke halaman Login
-            Navigator.pop(context);
-          },
-          child: const Text(
-            "Login",
-            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-          ),
-        ),
-      ],
-    );
-  }
-}
+//   @override
+//   Widget build(BuildContext context) {
+//     return Row(
+//       mainAxisAlignment: MainAxisAlignment.center,
+//       children: [
+//         const Text("Do you have an account? ", style: TextStyle(color: Colors.grey)),
+//         GestureDetector(
+//           onTap: () {
+//             // Menggunakan pop untuk kembali ke halaman Login
+//             Navigator.pop(context);
+//           },
+//           child: const Text(
+//             "Login",
+//             style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+//           ),
+//         ),
+//       ],
+//     );
+//   }
+// }
