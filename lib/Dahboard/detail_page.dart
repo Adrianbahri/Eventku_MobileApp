@@ -4,9 +4,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Fungsi/event_model.dart';
 import '../Fungsi/app_colors.dart';
-import '../Fungsi/favorite_helper.dart'; // <<< Import FavoriteHelper
+import '../Fungsi/favorite_helper.dart'; // Digunakan untuk fitur favorit
 
-// --- Halaman Detail (StatefulWidget) ---
 class DetailPage extends StatefulWidget {
   final EventModel event;
   const DetailPage({super.key, required this.event});
@@ -17,15 +16,17 @@ class DetailPage extends StatefulWidget {
 
 class _DetailPageState extends State<DetailPage> {
   final String _currentUserId = 'user_id_example_123'; 
-  bool _isFavorite = false; // <<< Status Favorit
+  bool _isFavorite = false;
+  bool _isRegistered = false; 
 
   @override
   void initState() {
     super.initState();
     _checkFavoriteStatus();
+    _checkRegistrationStatus(); 
   }
 
-  // Cek status favorit saat halaman dimuat
+  // FUNGSI: Cek status favorit
   Future<void> _checkFavoriteStatus() async {
     final bool status = await FavoriteHelper.isFavorite(widget.event.id);
     setState(() {
@@ -33,7 +34,7 @@ class _DetailPageState extends State<DetailPage> {
     });
   }
 
-  // FUNGSI BARU: Toggle status favorit
+  // FUNGSI: Toggle status favorit
   Future<void> _toggleFavorite() async {
     await FavoriteHelper.toggleFavorite(widget.event.id);
     final bool status = await FavoriteHelper.isFavorite(widget.event.id);
@@ -51,10 +52,61 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
+  // FUNGSI: Cek status pendaftaran
+  Future<void> _checkRegistrationStatus() async {
+    final snapshot = await FirebaseFirestore.instance
+        .collection('registrations')
+        .where('userId', isEqualTo: _currentUserId)
+        .where('eventId', isEqualTo: widget.event.id)
+        .limit(1)
+        .get();
+        
+    setState(() {
+      _isRegistered = snapshot.docs.isNotEmpty;
+    });
+  }
+
+  // FUNGSI: Batalkan Pendaftaran (Hapus dokumen dari 'registrations')
+  Future<void> _cancelRegistration() async {
+    try {
+      final querySnapshot = await FirebaseFirestore.instance
+          .collection('registrations')
+          .where('userId', isEqualTo: _currentUserId)
+          .where('eventId', isEqualTo: widget.event.id)
+          .limit(1)
+          .get();
+
+      if (querySnapshot.docs.isNotEmpty) {
+        // Hapus dokumen pendaftaran
+        await querySnapshot.docs.first.reference.delete(); 
+        
+        setState(() {
+          _isRegistered = false; // Perbarui status
+        });
+
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('🗑️ Pendaftaran dibatalkan!'),
+              backgroundColor: Colors.orange,
+            ),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Gagal membatalkan pendaftaran: $e'),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    }
+  }
 
   // FUNGSI: Membuka URL pendaftaran di browser
   Future<void> _launchUrl(BuildContext context, String? urlString) async {
-    // ... kode launchUrl yang sudah ada ...
     if (urlString == null || urlString.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Link pendaftaran belum tersedia!')),
@@ -73,7 +125,7 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
-  // FUNGSI BARU: Meluncurkan Aplikasi Google Maps Native
+  // FUNGSI: Meluncurkan Aplikasi Google Maps Native
   Future<void> _openGoogleMaps(BuildContext context, double lat, double lng, String label) async {
     final geoUrl = Uri.parse('geo:$lat,$lng?q=$lat,$lng($label)');
 
@@ -109,6 +161,8 @@ class _DetailPageState extends State<DetailPage> {
       };
 
       await firestore.collection('registrations').add(registrationData);
+      
+      await _checkRegistrationStatus(); 
 
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
@@ -197,13 +251,29 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
-  // WIDGET PEMBANTU: Tombol Aksi (Simpan & Daftar) (Diperbarui)
+  // WIDGET PEMBANTU: Tombol Aksi (Simpan & Daftar/Batal)
   Widget _buildActionButtons(BuildContext context) {
     final bool isRegistrationLinkAvailable = widget.event.registrationLink != null && widget.event.registrationLink!.isNotEmpty;
+    
+    // Status tombol utama berdasarkan _isRegistered
+    final String buttonText = _isRegistered 
+        ? "Batal Pendaftaran" 
+        : (isRegistrationLinkAvailable ? "Daftar Sekarang" : "Link Tidak Tersedia");
+        
+    final IconData buttonIcon = _isRegistered 
+        ? Icons.cancel 
+        : (isRegistrationLinkAvailable ? Icons.open_in_new : Icons.link_off);
+
+    final Color buttonColor = _isRegistered ? Colors.grey.shade600 : AppColors.primary;
+    final Color foregroundColor = AppColors.textLight;
+
+    final VoidCallback? onPressedAction = _isRegistered 
+        ? _cancelRegistration // Aksi Batal Daftar
+        : (isRegistrationLinkAvailable ? () => _registerAndLaunchUrl(context) : null); // Aksi Daftar
 
     return Row(
       children: [
-        // Tombol Simpan (Love / Bookmark) - Diperbarui
+        // Tombol Simpan (Love / Bookmark)
         Container(
           width: 50, 
           height: 50,
@@ -213,30 +283,28 @@ class _DetailPageState extends State<DetailPage> {
           ),
           child: IconButton(
             icon: Icon(
-              _isFavorite ? Icons.favorite : Icons.favorite_border, // <<< Ganti Ikon
-              color: _isFavorite ? Colors.red : AppColors.primary, // <<< Ganti Warna
+              _isFavorite ? Icons.favorite : Icons.favorite_border,
+              color: _isFavorite ? Colors.red : AppColors.primary,
               size: 24
             ),
-            onPressed: _toggleFavorite, // <<< Panggil fungsi toggle
+            onPressed: _toggleFavorite,
           ),
         ),
 
         const SizedBox(width: 16),
 
-        // Tombol Daftar (Primary)
+        // Tombol Daftar/Batal (Primary)
         Expanded(
           child: ElevatedButton.icon( 
-            icon: Icon(isRegistrationLinkAvailable ? Icons.open_in_new : Icons.link_off, size: 20),
+            icon: Icon(buttonIcon, size: 20),
             label: Text(
-              isRegistrationLinkAvailable ? "Daftar Sekarang" : "Link Tidak Tersedia",
+              buttonText,
               style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
             ),
-            onPressed: isRegistrationLinkAvailable 
-              ? () => _registerAndLaunchUrl(context) 
-              : null, 
+            onPressed: onPressedAction, 
             style: ElevatedButton.styleFrom(
-              backgroundColor: AppColors.primary,
-              foregroundColor: AppColors.textLight,
+              backgroundColor: buttonColor,
+              foregroundColor: foregroundColor,
               elevation: 5,
               padding: const EdgeInsets.symmetric(vertical: 16),
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
@@ -249,9 +317,8 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
-  // WIDGET BARU: Menampilkan Peta Mini dan Tombol Aksi Lokasi
+  // WIDGET: Menampilkan Peta Mini dan Tombol Aksi Lokasi
   Widget _buildLocationWidget(BuildContext context) {
-    // Cek apakah koordinat tersedia
     final bool hasCoordinates = widget.event.eventLat != null && widget.event.eventLng != null;
 
     if (!hasCoordinates) {
@@ -304,7 +371,6 @@ class _DetailPageState extends State<DetailPage> {
                     scrollGesturesEnabled: false,
                     mapToolbarEnabled: false,
                     myLocationButtonEnabled: false,
-                    // Non-interaktif
                     onMapCreated: (controller) {},
                   ),
                   // Overlay Tap-to-Open
@@ -326,7 +392,7 @@ class _DetailPageState extends State<DetailPage> {
     );
   }
 
-  // WIDGET PEMBANTU: Sheet Informasi Detail
+  // WIDGET PEMBANTU: Sheet Informasi Detail 
   Widget _buildInfoSheet(BuildContext context, double infoContainerHeight) {
     return Align(
       alignment: Alignment.bottomCenter,
@@ -380,7 +446,7 @@ class _DetailPageState extends State<DetailPage> {
 
             const SizedBox(height: 20),
 
-            // E. Dua Tombol (Simpan & Daftar)
+            // E. Dua Tombol (Simpan & Daftar/Batal)
             _buildActionButtons(context),
           ],
         ),

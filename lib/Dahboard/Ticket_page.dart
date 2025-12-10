@@ -3,10 +3,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:add_2_calendar/add_2_calendar.dart'; 
 import '../Fungsi/event_model.dart'; 
 import '../Fungsi/app_colors.dart'; 
-import '../Fungsi/favorite_helper.dart';
-import '../Dahboard/favorite_page.dart';
-
-
+import 'detail_page.dart'; // Import DetailPage
 
 // WIDGET UTAMA: Halaman Daftar Tiket - STATEFUL
 class TicketPage extends StatefulWidget {
@@ -18,31 +15,9 @@ class TicketPage extends StatefulWidget {
 
 class _TicketPageState extends State<TicketPage> {
 
-  // ⚠️ ID User tetap perlu diganti ke Firebase Auth sebenarnya
   final String _currentUserId = 'user_id_example_123'; 
-
-  // Menyimpan ID tiket yang dipilih
   final Set<String> _selectedTicketIds = {}; 
-  
-
-  // Menyimpan data tiket dari StreamBuilder
   List<DocumentSnapshot>? _registeredTickets;
-
-  // ❤️ Menyimpan daftar favorit lokal
-  List<String> _favoriteIds = [];
-
-   @override
-  void initState() {
-    super.initState();
-    _loadFavorites();
-  }
-
-  void _loadFavorites() async {
-    final favs = await FavoriteHelper.getFavorites();
-    setState(() {
-      _favoriteIds = favs;
-    });
-  }
 
   // Toggle select / unselect tiket
   void _toggleSelection(String docId) {
@@ -60,6 +35,7 @@ class _TicketPageState extends State<TicketPage> {
     final String title = eventData['eventTitle'] ?? 'Event Tiket';
     final String location = eventData['eventLocation'] ?? 'Lokasi Tidak Diketahui'; 
     
+    // Placeholder waktu - Ganti dengan waktu event sesungguhnya dari Firestore
     final DateTime startTime = DateTime.now().add(const Duration(hours: 1)); 
     final DateTime endTime = startTime.add(const Duration(hours: 2));   
 
@@ -101,10 +77,46 @@ class _TicketPageState extends State<TicketPage> {
     }
   }
 
+  // FUNGSI BARU: Mengambil EventModel dan Navigasi ke DetailPage
+  Future<void> _navigateToDetailPage(BuildContext context, String eventId) async {
+    try {
+      final docSnapshot = await FirebaseFirestore.instance
+          .collection('events')
+          .doc(eventId)
+          .get();
+
+      if (docSnapshot.exists) {
+        // Asumsi EventModel memiliki konstruktor fromMap yang berfungsi
+        final EventModel event = EventModel.fromMap(docSnapshot.data()!, docSnapshot.id);
+        if (mounted) {
+          Navigator.push(
+            context,
+            MaterialPageRoute(
+              builder: (context) => DetailPage(event: event),
+            ),
+          );
+        }
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Detail Event tidak ditemukan.')),
+          );
+        }
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Gagal memuat detail event: $e')),
+        );
+      }
+    }
+  }
+
   // 🌟 UI IMPROVEMENT: Card Tiket yang lebih modern
   Widget _buildTicketItem(BuildContext context, DocumentSnapshot doc) {
     final data = doc.data() as Map<String, dynamic>;
     final docId = doc.id;
+    final eventId = data['eventId'] as String?; // Ambil eventId dari data tiket
     final isSelected = _selectedTicketIds.contains(docId);
 
     final String title = data['eventTitle'] ?? 'Event Tidak Dikenal';
@@ -116,9 +128,12 @@ class _TicketPageState extends State<TicketPage> {
       onLongPress: () => _toggleSelection(docId),
       onTap: _selectedTicketIds.isNotEmpty
           ? () => _toggleSelection(docId)
-          : () => ScaffoldMessenger.of(context).showSnackBar(
-              SnackBar(content: Text('Membuka detail tiket: $title')),
-            ),
+          // Panggil fungsi navigasi saat diklik (hanya jika tidak dalam mode seleksi)
+          : eventId != null 
+              ? () => _navigateToDetailPage(context, eventId)
+              : () => ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(content: Text('ID Event tidak tersedia.')),
+                    ),
       child: Container(
         margin: const EdgeInsets.only(left: 16, right: 16, top: 16),
         decoration: BoxDecoration(
@@ -217,41 +232,26 @@ class _TicketPageState extends State<TicketPage> {
               const SizedBox(height: 14),
 
               // Bagian ID dan QR Code
-Row(
-  children: [
-    // ❤️ Icon Favorite
-    IconButton(
-      icon: Icon(
-        _favoriteIds.contains(docId)
-            ? Icons.favorite
-            : Icons.favorite_border,
-        color: Colors.red,
-      ),
-      onPressed: () async {
-        await FavoriteHelper.toggleFavorite(docId);
-
-        final updated = await FavoriteHelper.getFavorites();
-        setState(() {
-          _favoriteIds = updated;
-        });
-
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text(
-              _favoriteIds.contains(docId)
-                  ? "Ditambahkan ke Favorit ❤️"
-                  : "Dihapus dari Favorit 💔",
-            ),
-          ),
-        );
-      },
-    ),
-
-    // QR Code tetap ada
-    const Icon(Icons.qr_code, size: 40, color: AppColors.primary),
-  ],
-),
-
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text('ID Tiket:',
+                          style: TextStyle(fontSize: 12, color: Colors.grey)),
+                      Text(
+                        docId.substring(0, 8),
+                        style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Icon(Icons.qr_code, size: 40, color: AppColors.primary),
+                ],
+              ),
             ],
           ),
         ),
@@ -276,22 +276,11 @@ Row(
         backgroundColor: AppColors.primary,
         foregroundColor: AppColors.textLight,
         actions: [
-          IconButton(
-  icon: const Icon(Icons.favorite),
-  onPressed: () {
-    Navigator.push(
-      context,
-MaterialPageRoute(builder: (context) => const FavoritePage()),
-
-    );
-  },
-),
-
           if (_selectedTicketIds.isNotEmpty)
             IconButton(
               icon: const Icon(Icons.close),
               onPressed: () {
-                 setState(() {
+                  setState(() {
                     _selectedTicketIds.clear();
                   });
               },
