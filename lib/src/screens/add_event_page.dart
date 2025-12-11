@@ -1,16 +1,17 @@
 import 'dart:typed_data';
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
-import '../Fungsi/event_model.dart';
-import '../Fungsi/app_colors.dart';
-import "../Fungsi/locationpicker.dart";
-import 'LocationSearchPage.dart';
-import '../Model/location_models.dart';
-
+import '../utils/api_key_loader.dart'; 
+import '../Models/event_model.dart';
+import '../Utils/app_colors.dart';
+import "../Utils/location_picker.dart"; // LocationPickerPage
+import '../screens/location_page.dart'; // ManualLocationSearchPage
+import '../Models/location_model.dart';
+import '../Widget/custom_form_field.dart';
+import '../Utils/event_repository.dart';
 
 class AddEventPage extends StatefulWidget {
   const AddEventPage({super.key});
@@ -35,8 +36,11 @@ class _AddEventPageState extends State<AddEventPage> {
   String? _imageName;
   bool _isSubmitting = false;
 
-  // Ganti dengan API Key Anda
-  final String _googleApiKey = "AIzaSyCALEINfUjR9VDyyNLbvJ4cdBARglUJm1c";
+  // 🆕 Instance Repository (Untuk CRUD Event)
+  final EventRepository _eventRepo = EventRepository();
+
+  // ✅ Dapatkan API Key dari Loader (Getter Singleton)
+  final String _googleApiKey = ApiKeyLoader().googleMapsApiKey; 
 
   @override
   void dispose() {
@@ -46,27 +50,34 @@ class _AddEventPageState extends State<AddEventPage> {
     _regLinkController.dispose();
     super.dispose();
   }
-
+  
   // FUNGSI: Mencari Lokasi (Autocomplete)
   Future<void> _searchLocation() async {
-    // PERBAIKAN: Tambahkan pemeriksaan mounted sebelum operasi asinkron
+    if (_googleApiKey.isEmpty) { 
+        if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+                const SnackBar(content: Text("ERROR: API Key tidak dimuat.")),
+            );
+        }
+        return;
+    }
+    
     if (!mounted) return;
 
     final result = await Navigator.push<LocationSearchResult>(
       context,
       MaterialPageRoute(
-        builder: (context) => ManualLocationSearchPage(googleApiKey: _googleApiKey),
+        builder: (context) => ManualLocationSearchPage(googleApiKey: _googleApiKey), 
       ),
     );
 
-    if (result != null && mounted) { // PERBAIKAN: Cek mounted setelah await
+    if (result != null && mounted) {
       setState(() {
         _selectedLat = result.latitude;
         _selectedLng = result.longitude;
         _locController.text = result.addressName;
       });
 
-      // PERBAIKAN: Cek mounted sebelum menampilkan SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Lokasi dipilih: ${result.addressName}")),
@@ -75,9 +86,8 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
-  // FUNGSI: Pin di Peta (Map Picker)
+  // FUNGSI: Pin di Peta (Map Picker) (Tetap Sama)
   Future<void> _pinOnMap() async {
-    // PERBAIKAN: Tambahkan pemeriksaan mounted sebelum operasi asinkron
     if (!mounted) return;
 
     final LatLng initialLocation = _selectedLat != null && _selectedLng != null
@@ -87,18 +97,18 @@ class _AddEventPageState extends State<AddEventPage> {
     final result = await Navigator.push<LocationResult>(
       context,
       MaterialPageRoute(
+        // Catatan: LocationPickerPage tidak membutuhkan Google Maps API Key secara langsung
         builder: (context) => LocationPickerPage(initialLocation: initialLocation),
       ),
     );
 
-    if (result != null && mounted) { // PERBAIKAN: Cek mounted setelah await
+    if (result != null && mounted) {
       setState(() {
         _selectedLat = result.coordinates.latitude;
         _selectedLng = result.coordinates.longitude;
         _locController.text = result.addressName;
       });
 
-      // PERBAIKAN: Cek mounted sebelum menampilkan SnackBar
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(content: Text("Lokasi dipilih: ${result.addressName}")),
@@ -107,9 +117,8 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
-  // FUNGSI _pickImage
+  // FUNGSI _pickImage (Tetap Sama)
   Future<void> _pickImage() async {
-    // PERBAIKAN: Tambahkan pemeriksaan mounted sebelum operasi asinkron
     if (!mounted) return;
 
     final ImagePicker picker = ImagePicker();
@@ -120,7 +129,7 @@ class _AddEventPageState extends State<AddEventPage> {
         imageQuality: 80,
       );
 
-      if (picked != null && mounted) { // PERBAIKAN: Cek mounted setelah await
+      if (picked != null && mounted) {
         final bytes = await picked.readAsBytes();
         setState(() {
           _imageBytes = bytes;
@@ -132,9 +141,13 @@ class _AddEventPageState extends State<AddEventPage> {
     }
   }
 
-  // FUNGSI _submitEvent
+  // FUNGSI _submitEvent (Menggunakan Repository)
   void _submitEvent() async {
-    // PERBAIKAN: Cek mounted di awal fungsi asinkron (Opsional tapi bagus)
+    if (_googleApiKey.isEmpty) { 
+        if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("API Key belum dimuat. Tidak dapat mempublikasikan.")));
+        return;
+    }
+    
     if (!mounted) return; 
 
     final currentUserId = FirebaseAuth.instance.currentUser?.uid;
@@ -149,9 +162,10 @@ class _AddEventPageState extends State<AddEventPage> {
       return;
     }
 
-    if (mounted) setState(() => _isSubmitting = true); // PERBAIKAN: Cek mounted
+    if (mounted) setState(() => _isSubmitting = true);
 
     try {
+      // 1. Upload Gambar ke Firebase Storage
       String fileName = '${currentUserId}_${DateTime.now().millisecondsSinceEpoch}.jpg';
       Reference storageRef = FirebaseStorage.instance.ref().child('posters/$fileName');
       final metadata = SettableMetadata(contentType: 'image/jpeg');
@@ -178,22 +192,23 @@ class _AddEventPageState extends State<AddEventPage> {
         eventLng: _selectedLng,
       );
 
-      await FirebaseFirestore.instance.collection('events').add(newEvent.toMap());
+      // ✅ MENGGUNAKAN REPOSITORY 
+      await _eventRepo.addEvent(newEvent);
 
-      if (mounted) { // PERBAIKAN: Cek mounted sebelum navigasi & SnackBar
+      if (mounted) {
         Navigator.pop(context);
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("Event Berhasil Dibuat!")));
       }
     } catch (e) {
       if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text("Error: $e")));
     } finally {
-      if (mounted) setState(() => _isSubmitting = false); // PERBAIKAN: Cek mounted
+      if (mounted) setState(() => _isSubmitting = false);
     }
   }
 
-  // --- HELPER DATE/TIME PICKER & WIDGETS ---
+  // --- HELPER DATE/TIME PICKER & WIDGETS (Tidak Berubah) ---
+  
   Future<void> _pickDate() async {
-    // PERBAIKAN: Tambahkan pemeriksaan mounted sebelum operasi asinkron
     if (!mounted) return;
 
     final DateTime? picked = await showDatePicker(
@@ -212,11 +227,10 @@ class _AddEventPageState extends State<AddEventPage> {
         );
       }
     );
-    if (picked != null && mounted) setState(() => _selectedDate = picked); // PERBAIKAN: Cek mounted
+    if (picked != null && mounted) setState(() => _selectedDate = picked);
   }
 
   Future<void> _pickTime() async {
-    // PERBAIKAN: Tambahkan pemeriksaan mounted sebelum operasi asinkron
     if (!mounted) return;
 
     final TimeOfDay? picked = await showTimePicker(
@@ -234,7 +248,7 @@ class _AddEventPageState extends State<AddEventPage> {
         );
       }
     );
-    if (picked != null && mounted) setState(() => _selectedTime = picked); // PERBAIKAN: Cek mounted
+    if (picked != null && mounted) setState(() => _selectedTime = picked);
   }
 
   Widget _buildLabel(String text) => Padding(
@@ -248,57 +262,6 @@ class _AddEventPageState extends State<AddEventPage> {
     )
   );
 
-  Widget _buildTextField({
-    required TextEditingController controller,
-    required String hint,
-    required IconData icon,
-    int maxLines = 1,
-    TextInputType keyboardType = TextInputType.text,
-    bool readOnly = false,
-  }) {
-    // 🔥 WARNA STROKE DENGAN OPASITAS 10% (Pasif)
-    final passiveBorderColor = AppColors.secondary.withOpacity(0.1);
-    // WARNA STROKE DENGAN OPASITAS 100% (Aktif/Fokus)
-    final activeBorderColor = AppColors.secondary.withOpacity(1.0);
-
-    // Border Side Pasif (10%)
-    final passiveBorderSide = BorderSide(color: passiveBorderColor, width: 1.5);
-    // Border Side Aktif (100%)
-    final activeBorderSide = BorderSide(color: activeBorderColor, width: 1.5);
-
-    return TextField(
-      controller: controller,
-      maxLines: maxLines,
-      readOnly: readOnly,
-      keyboardType: keyboardType,
-      // Teks yang diketik (typed text) berwarna gelap
-      style: const TextStyle(color: AppColors.textDark),
-      decoration: InputDecoration(
-        // ICON: Selalu PRIMARY (Pink)
-        prefixIcon: Icon(icon, color: AppColors.primary),
-        hintText: hint,
-        // Hint text juga berwarna gelap
-        hintStyle: const TextStyle(color: AppColors.textDark),
-        filled: true,
-        fillColor: AppColors.inputBg,
-
-        // Border default (Pasif) -> Opacity 10%
-        border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: passiveBorderSide,
-        ),
-        enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: passiveBorderSide, // 10%
-        ),
-        // Border saat fokus (Aktif) -> Opacity 100%
-        focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(15),
-          borderSide: activeBorderSide, // 100%
-        ),
-      )
-    );
-  }
 
   // WIDGET CONTAINER PICKER (Tanggal/Jam/Lokasi)
   Widget _buildPickerContainer({
@@ -306,12 +269,8 @@ class _AddEventPageState extends State<AddEventPage> {
     required String text,
     required VoidCallback onTap,
   }) {
-    // 🔥 WARNA ICON: Selalu PRIMARY (Pink) 100%
     final iconColor = AppColors.primary;
-    // 🎯 WARNA TEXT: Gelap
     final textColor = AppColors.textDark;
-
-    // 🔥 BORDER: Secondary 10% (Pasif)
     final borderColor = AppColors.secondary.withOpacity(0.1);
 
     return InkWell(
@@ -319,20 +278,17 @@ class _AddEventPageState extends State<AddEventPage> {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          // Border diatur 10%
           border: Border.all(color: borderColor, width: 1.5),
           borderRadius: BorderRadius.circular(15),
           color: AppColors.inputBg,
         ),
         child: Row(
           children: [
-            // Gunakan iconColor (PRIMARY)
             Icon(icon, color: iconColor),
             const SizedBox(width: 8),
             Expanded(
               child: Text(
                 text,
-                // Gunakan textColor (TEXT DARK)
                 style: TextStyle(color: textColor, fontWeight: FontWeight.w500),
                 overflow: TextOverflow.ellipsis,
               ),
@@ -342,23 +298,43 @@ class _AddEventPageState extends State<AddEventPage> {
       )
     );
   }
+  
+  // -----------------------------------------------------------------------
 
   @override
   Widget build(BuildContext context) {
+    // 🛑 TAMPILKAN ERROR JIKA KUNCI GAGAL DIMUAT (Dari Loader)
+    if (_googleApiKey.isEmpty) {
+      return const Scaffold(
+        appBar: PreferredSize(
+          preferredSize: Size.fromHeight(60),
+          child: SizedBox(),
+        ),
+        body: Center(
+          child: Padding(
+            padding: EdgeInsets.all(30.0),
+            child: Text(
+              "FATAL ERROR: Kunci API Google Maps tidak dimuat. Pastikan Anda menjalankan main.dart dan file 'assets/key.json' ada.", 
+              textAlign: TextAlign.center, 
+              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.bold)
+            ),
+          ),
+        ),
+      );
+    }
+    
+    // UI utama dimuat HANYA jika kunci tersedia
     final locationStatusText = (_selectedLat != null && _selectedLng != null)
       ? "Lokasi DIPILIH: ${_locController.text}"
       : "Pilih Lokasi di Peta atau Cari Alamat";
 
-    // Warna statis untuk status text (Success/Secondary)
     final statusTextColor = (_selectedLat != null) ? AppColors.success : AppColors.secondary;
-
-    // 🔥 Border untuk Poster (Opacity 10%)
     final posterBorderColor = AppColors.secondary.withOpacity(0.1);
 
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        title: const Text("Buat Event (Maps API)"),
+        title: const Text("Buat Event"),
         backgroundColor: AppColors.background,
         foregroundColor: AppColors.textDark,
         elevation: 0.5,
@@ -372,10 +348,11 @@ class _AddEventPageState extends State<AddEventPage> {
               children: [
 
               _buildLabel("Nama Kegiatan"),
-              _buildTextField(
+              CustomFormField(
                 controller: _titleController,
-                hint: "Nama Event",
-                icon: Icons.event,
+                hintText: "Nama Event",
+                prefixIcon: Icons.event,
+                label: '', 
               ),
               const SizedBox(height: 20),
 
@@ -420,11 +397,12 @@ class _AddEventPageState extends State<AddEventPage> {
 
               // Link Pendaftaran
               _buildLabel("Link Pendaftaran (Opsional)"),
-              _buildTextField(
+              CustomFormField(
                 controller: _regLinkController,
-                hint: "Contoh: https://bit.ly/pendaftaran-event",
-                icon: Icons.link,
+                hintText: "Contoh: https://bit.ly/pendaftaran-event",
+                prefixIcon: Icons.link,
                 keyboardType: TextInputType.url,
+                label: '', 
               ),
 
               const SizedBox(height: 20),
@@ -436,7 +414,6 @@ class _AddEventPageState extends State<AddEventPage> {
                   decoration: BoxDecoration(
                     color: AppColors.inputBg,
                     borderRadius: BorderRadius.circular(15),
-                    // POSTER: Border Secondary 10%
                     border: Border.all(color: posterBorderColor, width: 1.5),
                     image: _imageBytes != null
                       ? DecorationImage(image: MemoryImage(_imageBytes!), fit: BoxFit.cover)
@@ -445,7 +422,6 @@ class _AddEventPageState extends State<AddEventPage> {
                   child: _imageBytes == null
                     ? Center(child: Column(
                       mainAxisAlignment: MainAxisAlignment.center,
-                      // ICON POSTER: Primary 100%
                       children: [
                         Icon(Icons.add_a_photo, size: 40, color: AppColors.primary),
                         Text("Upload Poster", style: TextStyle(color: AppColors.primary))
@@ -457,12 +433,12 @@ class _AddEventPageState extends State<AddEventPage> {
 
               const SizedBox(height: 20),
               _buildLabel("Deskripsi"),
-              // DESKRIPSI: Stroke Secondary 10%/100%, Icon/Text Dark
-              _buildTextField(
+              CustomFormField(
                 controller: _descController,
-                hint: "Deskripsi",
-                icon: Icons.description,
+                hintText: "Deskripsi",
+                prefixIcon: Icons.description,
                 maxLines: 3,
+                label: '', 
               ),
 
               const SizedBox(height: 30),

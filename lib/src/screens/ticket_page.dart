@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:add_2_calendar/add_2_calendar.dart'; 
-import '../Fungsi/event_model.dart'; 
-import '../Fungsi/app_colors.dart'; 
-import 'detail_page.dart'; // Import DetailPage
+import '../Models/event_model.dart';
+import '../Utils/app_colors.dart';
+import '../screens/detail_page.dart'; // Import DetailPage
 import 'dart:ui'; // Diperlukan untuk PathMetric
 
 // WIDGET UTAMA: Halaman Daftar Tiket - STATEFUL
@@ -49,7 +49,7 @@ endDate: endTime,
 
 Add2Calendar.addEvent2Cal(event);
 ScaffoldMessenger.of(context).showSnackBar(
-SnackBar(content: Text('Event "${title}" ditambahkan ke Kalender!')),
+SnackBar(content: Text('Event "$title" ditambahkan ke Kalender!')),
 );
 }
 

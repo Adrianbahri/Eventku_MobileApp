@@ -1,5 +1,3 @@
-// eventku/Dahboard/location_models.dart
-
 class LocationSearchResult {
   final String addressName;
   final double latitude;

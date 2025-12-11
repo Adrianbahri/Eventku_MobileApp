@@ -10,10 +10,8 @@ class EventModel {
   final String userId;
   final String? registrationLink;
   final Timestamp? timestamp; 
-  
-  // 💡 PROPERTI BARU UNTUK GOOGLE MAPS
-  final double? eventLat; // Latitude lokasi event
-  final double? eventLng; // Longitude lokasi event
+  final double? eventLat; 
+  final double? eventLng;
 
   EventModel({
     required this.id,
@@ -25,12 +23,10 @@ class EventModel {
     required this.userId,
     this.registrationLink,
     this.timestamp,
-    // 💡 Tambahkan di konstruktor
     this.eventLat,
     this.eventLng,
   });
 
-  // Metode untuk Mengirim Data ke Firestore (Create/Update)
   Map<String, dynamic> toMap() {
     return {
       'title': title,
@@ -41,13 +37,11 @@ class EventModel {
       'userId': userId,
       'registrationLink': registrationLink,
       'timestamp': FieldValue.serverTimestamp(), 
-      // 💡 Tambahkan field Maps ke Map
       'eventLat': eventLat,
       'eventLng': eventLng,
     };
   }
 
-  // Factory untuk Menerima Data dari Firestore (Read)
   factory EventModel.fromMap(Map<String, dynamic> map, String documentId) {
     return EventModel(
       id: documentId,
@@ -59,7 +53,6 @@ class EventModel {
       userId: map['userId'] ?? '',
       registrationLink: map['registrationLink'] as String?,
       timestamp: map['timestamp'] as Timestamp?,
-      // 💡 Baca field Maps dari Map (gunakan as double? untuk nullable double)
       eventLat: map['eventLat'] as double?,
       eventLng: map['eventLng'] as double?,
     );

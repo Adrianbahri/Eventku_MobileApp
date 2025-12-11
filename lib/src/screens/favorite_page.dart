@@ -1,9 +1,9 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-import '../Fungsi/favorite_helper.dart'; 
-import '../Fungsi/app_colors.dart'; 
-import '../Fungsi/event_model.dart'; // Import EventModel
+import '../utils/favorite_helper.dart'; 
+import '../Models/event_model.dart';
+import '../Utils/app_colors.dart';
 import 'detail_page.dart'; // Import DetailPage
+import '../Utils/event_repository.dart'; // <-- IMPORT BARU: Event Repository
 
 class FavoritePage extends StatefulWidget {
  const FavoritePage({super.key});
@@ -16,6 +16,9 @@ class _FavoritePageState extends State<FavoritePage> {
  // Ubah tipe data untuk menyimpan model event lengkap
  List<EventModel> favoriteEvents = []; 
  bool isLoading = true;
+
+ // 🆕 Instance Repository
+ final EventRepository _eventRepo = EventRepository(); 
 
  @override
  void initState() {
@@ -37,15 +40,8 @@ class _FavoritePageState extends State<FavoritePage> {
 
   if (favoriteIds.isNotEmpty) {
    try {
-    // Ambil data event dari Firestore menggunakan daftar ID
-    final snapshot = await FirebaseFirestore.instance
-      .collection('events')
-      .where(FieldPath.documentId, whereIn: favoriteIds)
-      .get();
-
-    loadedEvents = snapshot.docs.map((doc) {
-     return EventModel.fromMap(doc.data(), doc.id);
-    }).toList();
+    // 💥 KOREKSI: Panggil Repository untuk mengambil data event
+    loadedEvents = await _eventRepo.getEventsByIds(favoriteIds);
     
    } catch (e) {
     debugPrint("Error memuat event favorit: $e");

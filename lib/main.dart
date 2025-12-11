@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_core/firebase_core.dart';
-import 'Fungsi/firebase_options.dart';
-import 'login page/login_page.dart';
-import 'login page/register_page.dart';
+import 'src/screens/login_page.dart';
+import 'src/screens/register_page.dart';
 import 'package:timezone/data/latest.dart' as tz;
-import 'Dahboard/dashboard_page.dart';
-import 'Fungsi/auth_wrapper.dart';
+import 'src/screens/dashboard_page.dart';
+import '/src/Widget/auth_wrapper.dart';
+import '/src/Utils/firebase_options.dart';
+import 'src/utils/api_key_loader.dart';
 
 
 void main() async {
@@ -14,7 +15,7 @@ void main() async {
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
-
+  await ApiKeyLoader().loadKeys();
   runApp(const EventApp());
 }
 

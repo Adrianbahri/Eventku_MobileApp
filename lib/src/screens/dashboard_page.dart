@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
 import 'detail_page.dart';
-import '../Fungsi/event_model.dart';
+import '../Models/event_model.dart';
 import 'add_event_page.dart';
 import 'profile_page.dart';
 import 'notification_page.dart';
-import '../Fungsi/app_colors.dart';
+import '../Utils/app_colors.dart';
 import 'ticket_page.dart';
 import 'favorite_page.dart';
+import '../Utils/event_repository.dart'; // <-- IMPORT BARU: Event Repository
 
 
 // --- Halaman Utama (Dashboard) ---
@@ -20,6 +20,9 @@ class HomePage extends StatefulWidget {
 class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
+
+  // 🆕 Instance Repository
+  final EventRepository _eventRepo = EventRepository(); 
 
   @override
   void initState() {
@@ -35,15 +38,12 @@ class _HomePageState extends State<HomePage> {
   }
 
   void _onSearchChanged() {
-    // Ini aman karena dipanggil sinkronus dari listener TextEditingController
     setState(() {
       _searchQuery = _searchController.text.toLowerCase();
     });
   }
 
-  // FUNGSI PERBAIKAN: Dipanggil dari CustomFloatingNavBar setelah AddEventPage ditutup
   void refreshUI() {
-    // PERBAIKAN: Hanya panggil setState jika widget masih mounted
     if (mounted) { 
       setState(() {});
       debugPrint("UI Refreshed: HomePage is mounted.");
@@ -62,7 +62,6 @@ class _HomePageState extends State<HomePage> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Meneruskan fungsi refreshUI yang sudah diperbaiki
             CustomHeader(
               onEventAdded: refreshUI,
               searchController: _searchController,
@@ -103,18 +102,17 @@ class _HomePageState extends State<HomePage> {
           ],
         ),
       ),
-      // Meneruskan fungsi refreshUI yang sudah diperbaiki
       bottomNavigationBar: CustomFloatingNavBar(onAddEvent: refreshUI), 
     );
   }
 
-  // Widget untuk StreamBuilder dan PageView
+  // Widget untuk StreamBuilder dan PageView (Diperbarui menggunakan Repository)
   Widget _buildEventCarousel() {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-          .collection('events')
-          .orderBy('timestamp', descending: true)
-          .snapshots(),
+    // 🔄 MENGGANTI StreamBuilder<QuerySnapshot> menjadi StreamBuilder<List<EventModel>>
+    // dan memanggil EventRepository
+    return StreamBuilder<List<EventModel>>(
+      stream: _eventRepo.getEventsStream(),
+      
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(
@@ -124,6 +122,7 @@ class _HomePageState extends State<HomePage> {
 
         if (snapshot.hasError) {
           return Center(
+            // Menampilkan error dari Repository
             child: Text(
               "Error: ${snapshot.error}",
               style: const TextStyle(color: Colors.red),
@@ -131,7 +130,7 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(
             child: Text(
               "Belum ada event yang tersedia.",
@@ -140,9 +139,8 @@ class _HomePageState extends State<HomePage> {
           );
         }
 
-        final List<EventModel> allEvents = snapshot.data!.docs.map((doc) {
-          return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        }).toList();
+        // Data yang diterima sudah berupa List<EventModel>
+        final List<EventModel> allEvents = snapshot.data!;
 
         // Filter data berdasarkan query pencarian (Client-Side Filtering)
         final filteredEvents = allEvents.where((event) {
@@ -203,7 +201,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 // -------------------------------------------------------------
-//          WIDGET KOMPONEN
+//           WIDGET KOMPONEN (Tidak Berubah)
 // -------------------------------------------------------------
 
 // --- Kartu Event Responsif ---
@@ -486,13 +484,10 @@ class CustomFloatingNavBar extends StatelessWidget {
           // 1. Tombol Add Event 
           InkWell(
             onTap: () async {
-              // Navigasi ke AddEventPage, menunggu hasilnya
               await Navigator.push(
                 context,
                 MaterialPageRoute(builder: (context) => const AddEventPage()),
               );
-              // Panggil callback onAddEvent (yaitu refreshUI)
-              // Callback ini sekarang aman karena refreshUI() di HomePage sudah dicek 'mounted'.
               onAddEvent(); 
             },
             child: Container(

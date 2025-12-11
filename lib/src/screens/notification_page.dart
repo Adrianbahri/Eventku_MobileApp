@@ -1,13 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:intl/intl.dart'; // 💡 IMPORT BARU: Diperlukan untuk parsing string tanggal/waktu
-import '../Fungsi/event_model.dart'; // Membutuhkan EventModel
-import '../Fungsi/app_colors.dart';
-import '../Fungsi/notification_service.dart'; // Import service notifikasi
-
-// Pastikan file 'event_model.dart' ada dan memiliki kelas EventModel
-// dan fungsi EventModel.fromMap.
+import 'package:intl/intl.dart';
+import '../Models/event_model.dart';
+import '../Utils/app_colors.dart';
+import '../Utils/notification_service.dart';
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});

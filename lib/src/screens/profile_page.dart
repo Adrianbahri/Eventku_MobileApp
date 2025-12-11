@@ -1,14 +1,10 @@
-// file: profile_page.dart (KODE LENGKAP)
-
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart';
-
-// PASTIKAN PATH INI BENAR DI PROYEK ANDA
-import '../Fungsi/event_model.dart';
 import 'detail_page.dart';
-import '../login page/login_page.dart'; // <--- Import ini diperlukan untuk navigasi Logout
-import '../Fungsi/app_colors.dart';
+import 'login_page.dart';
+import '../Models/event_model.dart';
+import '../Utils/app_colors.dart';
+import '../Utils/event_repository.dart';
 
 // --- HALAMAN UTAMA PROFIL ---
 class ProfilePage extends StatefulWidget {
@@ -90,11 +86,10 @@ class _ProfilePageState extends State<ProfilePage> {
     }
   }
 
-  // Logika Logout (DIUBAH SESUAI PERMINTAAN SEBELUMNYA)
+  // Logika Logout
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
-      // Mengarahkan ke LoginPage dan menghapus semua rute di belakangnya
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginPage()), 
         (Route<dynamic> route) => false,
@@ -116,7 +111,7 @@ class _ProfilePageState extends State<ProfilePage> {
     }
 
     // Mendapatkan data user terbaru
-    currentUser!.reload(); 
+    // currentUser!.reload(); // Dihapus karena reload sering memicu race condition
     final updatedUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
@@ -152,7 +147,8 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
               const SizedBox(height: 15),
-              _UserEventList(currentUserId: updatedUser!.uid),
+              // Pastikan updatedUser tidak null di sini (sudah dicek di awal build)
+              _UserEventList(currentUserId: updatedUser!.uid), 
               
               const SizedBox(height: 40),
 
@@ -170,9 +166,8 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // WIDGETS HELPER UNTUK KETERSTRUKTURAN
+  // WIDGETS HELPER UNTUK KETERSTRUKTURAN (Tidak Berubah)
 
-  // Header Ringkas User Info
   Widget _buildUserInfoHeader(User? user) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.center,
@@ -197,20 +192,18 @@ class _ProfilePageState extends State<ProfilePage> {
         const SizedBox(height: 4),
         Text(
           user?.email ?? 'Email tidak tersedia',
-          style: TextStyle(fontSize: 14, color: Colors.grey[600]),
+          style: TextStyle(color: Colors.grey, fontSize: 14),
         ),
       ],
     );
   }
 
-  // Form Edit Nama & Ganti Sandi
   Widget _buildEditForm() {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: AppColors.textLight,
         borderRadius: BorderRadius.circular(15),
-        // Soft Shadow
         boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, offset: const Offset(0, 4))],
       ),
       child: Column(
@@ -244,7 +237,6 @@ class _ProfilePageState extends State<ProfilePage> {
     );
   }
 
-  // TextField dengan Tombol Aksi
   Widget _buildTextFieldWithButton({
     required TextEditingController controller,
     required String label,
@@ -276,7 +268,7 @@ class _ProfilePageState extends State<ProfilePage> {
         ),
         const SizedBox(width: 10),
         SizedBox(
-          height: 55, // Sesuaikan tinggi tombol agar sejajar dengan TextField
+          height: 55,
           child: ElevatedButton(
             onPressed: readOnly ? null : onPressed,
             style: ElevatedButton.styleFrom(
@@ -292,10 +284,13 @@ class _ProfilePageState extends State<ProfilePage> {
   }
 }
 
-// --- WIDGET LIST EVENT PRIBADI (SUDAH DIPERBAIKI) ---
+// --- WIDGET LIST EVENT PRIBADI (REFECTORED) ---
 class _UserEventList extends StatelessWidget {
   final String currentUserId;
-  const _UserEventList({required this.currentUserId});
+  // 🆕 Instance Repository
+  final EventRepository _eventRepo = EventRepository(); 
+
+  _UserEventList({required this.currentUserId});
 
   Future<bool> _showDeleteConfirmationDialog(BuildContext context, String title) async {
     return await showDialog<bool>(
@@ -317,9 +312,8 @@ class _UserEventList extends StatelessWidget {
     ) ?? false;
   }
 
-  // 🔥 FUNGSI DELETE DENGAN PERIKSA context.mounted
+  // 🔥 FUNGSI DELETE MENGGUNAKAN REPOSITORY
   Future<void> _deleteEvent(BuildContext context, String eventId, String eventTitle) async {
-    // Ambil BuildContext lokal yang aman sebelum operasi asinkron
     final localContext = context; 
 
     final shouldDelete = await _showDeleteConfirmationDialog(localContext, eventTitle);
@@ -327,16 +321,15 @@ class _UserEventList extends StatelessWidget {
     if (!shouldDelete) return;
 
     try {
-      await FirebaseFirestore.instance.collection('events').doc(eventId).delete();
+      // ✅ KOREKSI: Panggil Repository untuk menghapus data
+      await _eventRepo.deleteEvent(eventId);
       
-      // ✅ Cek apakah context masih mounted setelah await
       if (localContext.mounted) {
         ScaffoldMessenger.of(localContext).showSnackBar(
           const SnackBar(content: Text('Event berhasil dihapus.'), backgroundColor: AppColors.success),
         );
       }
     } catch (e) {
-      // ✅ Cek di catch block juga
       if (localContext.mounted) {
         ScaffoldMessenger.of(localContext).showSnackBar(
           SnackBar(content: Text('Gagal menghapus event: $e'), backgroundColor: AppColors.error),
@@ -347,35 +340,26 @@ class _UserEventList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: FirebaseFirestore.instance
-        .collection('events')
-        .where('userId', isEqualTo: currentUserId) 
-        .orderBy('timestamp', descending: true)
-        .snapshots(),
+    // 🔄 GANTI StreamBuilder<QuerySnapshot> dengan StreamBuilder<List<EventModel>>
+    // dan panggil EventRepository
+    return StreamBuilder<List<EventModel>>(
+      stream: _eventRepo.getUserUploadedEventsStream(currentUserId),
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
         if (snapshot.hasError) {
-          if (snapshot.error.toString().contains('failed-precondition')) {
-            return const Text(
-              "Error Firestore: Kueri memerlukan indeks gabungan. Silakan buat di Firebase Console.",
-              style: TextStyle(color: AppColors.error, fontWeight: FontWeight.w600),
-            );
-          }
           return Center(child: Text("Error: ${snapshot.error}"));
         }
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        if (!snapshot.hasData || snapshot.data!.isEmpty) {
           return const Center(child: Padding(
             padding: EdgeInsets.all(16.0),
             child: Text("Anda belum mengupload event apa pun."),
           ));
         }
 
-        final List<EventModel> userEvents = snapshot.data!.docs.map((doc) {
-          return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        }).toList();
+        // Data yang diterima sudah berupa List<EventModel>
+        final List<EventModel> userEvents = snapshot.data!;
 
         return ListView.builder(
           shrinkWrap: true, 
@@ -416,7 +400,6 @@ class _UserEventList extends StatelessWidget {
                   subtitle: Text("${event.date} | ${event.location}"),
                   trailing: IconButton(
                     icon: const Icon(Icons.delete, color: AppColors.error),
-                    // Menggunakan BuildContext dari ListTile untuk panggilan _deleteEvent
                     onPressed: () => _deleteEvent(context, event.id, event.title), 
                   ),
                   onTap: () {
@@ -432,7 +415,7 @@ class _UserEventList extends StatelessWidget {
   }
 }
 
-// --- WIDGET TOMBOL LOGOUT ---
+// --- WIDGET TOMBOL LOGOUT (Tidak Berubah) ---
 class _LogoutButton extends StatelessWidget {
   final VoidCallback onLogout;
   const _LogoutButton({required this.onLogout});

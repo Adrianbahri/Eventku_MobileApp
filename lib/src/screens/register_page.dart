@@ -1,6 +1,7 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import '../Fungsi/app_colors.dart';
+import '../Utils/app_colors.dart';
+import '../Widget/custom_form_field.dart';
 
 // ===========================================
 // 1. HALAMAN UTAMA REGISTER (StatelessWidget)
@@ -82,7 +83,6 @@ class _RegistFormState extends State<_RegistForm> {
   final _emailController = TextEditingController();
   final _passwordController = TextEditingController();
 
-  bool _isObscure = true;
   bool _isLoading = false;
 
   Future<void> _handleRegister() async {
@@ -167,17 +167,32 @@ class _RegistFormState extends State<_RegistForm> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // Name Field
-        _buildInputField('Full Name', _nameController, TextInputType.name),
+        CustomFormField(
+          label: 'Full Name',
+          controller: _nameController,
+          keyboardType: TextInputType.name,
+          hintText: 'enter your Full Name', 
+        ),
         
         const SizedBox(height: 20),
         
         // Email Field
-        _buildInputField('Email', _emailController, TextInputType.emailAddress),
+        CustomFormField(
+          label: 'Email', 
+          controller: _emailController, 
+          keyboardType: TextInputType.emailAddress,
+          hintText: 'enter your Email', 
+        ),
         
         const SizedBox(height: 20),
         
         // Password Field
-        _buildPasswordField(),
+        CustomFormField(
+          label: 'Password',
+          controller: _passwordController,
+          isPassword: true, // Mengaktifkan fitur password di CustomFormField
+          hintText: 'Password', 
+        ),
         
         const SizedBox(height: 30),
         
@@ -200,64 +215,6 @@ class _RegistFormState extends State<_RegistForm> {
                 child: CircularProgressIndicator(color: AppColors.textLight, strokeWidth: 2),
               )
             : const Text('Sign Up', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-        ),
-      ],
-    );
-  }
-
-  // Helper untuk TextFormField standar
-  Widget _buildInputField(String label, TextEditingController controller, TextInputType type) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(label, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textDark)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: controller,
-          keyboardType: type,
-          decoration: InputDecoration(
-            hintText: 'enter your $label',
-            filled: true,
-            fillColor: AppColors.inputBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
-        ),
-      ],
-    );
-  }
-
-  // Helper untuk Password Field
-  Widget _buildPasswordField() {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        const Text('Password', style: TextStyle(fontSize: 16, fontWeight: FontWeight.w500, color: AppColors.textDark)),
-        const SizedBox(height: 8),
-        TextFormField(
-          controller: _passwordController,
-          obscureText: _isObscure,
-          decoration: InputDecoration(
-            hintText: 'Password',
-            suffixIcon: IconButton(
-              icon: Icon(_isObscure ? Icons.visibility_off : Icons.visibility, color: Colors.grey[400]),
-              onPressed: () {
-                setState(() {
-                  _isObscure = !_isObscure;
-                });
-              },
-            ),
-            filled: true,
-            fillColor: AppColors.inputBg,
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10.0),
-              borderSide: BorderSide.none,
-            ),
-            contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
-          ),
         ),
       ],
     );
