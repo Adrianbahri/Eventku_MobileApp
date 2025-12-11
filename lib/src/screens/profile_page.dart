@@ -4,7 +4,7 @@ import 'detail_page.dart';
 import 'login_page.dart';
 import '../Models/event_model.dart';
 import '../Utils/app_colors.dart';
-import '../Utils/event_repository.dart';
+import '../Utils/event_repository.dart'; // Import EventRepository
 
 // --- HALAMAN UTAMA PROFIL ---
 class ProfilePage extends StatefulWidget {
@@ -23,6 +23,7 @@ class _ProfilePageState extends State<ProfilePage> {
   @override
   void initState() {
     super.initState();
+    // Jika user ada, set nama di controller
     _nameController.text = currentUser?.displayName ?? '';
   }
 
@@ -90,6 +91,7 @@ class _ProfilePageState extends State<ProfilePage> {
   Future<void> _logout() async {
     await FirebaseAuth.instance.signOut();
     if (mounted) {
+      // Navigasi ke LoginPage dan menghapus semua route sebelumnya
       Navigator.of(context).pushAndRemoveUntil(
         MaterialPageRoute(builder: (context) => const LoginPage()), 
         (Route<dynamic> route) => false,
@@ -110,8 +112,6 @@ class _ProfilePageState extends State<ProfilePage> {
       );
     }
 
-    // Mendapatkan data user terbaru
-    // currentUser!.reload(); // Dihapus karena reload sering memicu race condition
     final updatedUser = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
@@ -147,7 +147,6 @@ class _ProfilePageState extends State<ProfilePage> {
                 style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.textDark),
               ),
               const SizedBox(height: 15),
-              // Pastikan updatedUser tidak null di sini (sudah dicek di awal build)
               _UserEventList(currentUserId: updatedUser!.uid), 
               
               const SizedBox(height: 40),
@@ -287,8 +286,8 @@ class _ProfilePageState extends State<ProfilePage> {
 // --- WIDGET LIST EVENT PRIBADI (REFECTORED) ---
 class _UserEventList extends StatelessWidget {
   final String currentUserId;
-  // 🆕 Instance Repository
-  final EventRepository _eventRepo = EventRepository(); 
+  // ✅ KOREKSI: Inisialisasi Singleton dengan getter 'instance'
+  final EventRepository _eventRepo = EventRepository.instance;
 
   _UserEventList({required this.currentUserId});
 
@@ -312,7 +311,7 @@ class _UserEventList extends StatelessWidget {
     ) ?? false;
   }
 
-  // 🔥 FUNGSI DELETE MENGGUNAKAN REPOSITORY
+  // FUNGSI DELETE MENGGUNAKAN REPOSITORY
   Future<void> _deleteEvent(BuildContext context, String eventId, String eventTitle) async {
     final localContext = context; 
 
@@ -321,7 +320,6 @@ class _UserEventList extends StatelessWidget {
     if (!shouldDelete) return;
 
     try {
-      // ✅ KOREKSI: Panggil Repository untuk menghapus data
       await _eventRepo.deleteEvent(eventId);
       
       if (localContext.mounted) {
@@ -340,8 +338,7 @@ class _UserEventList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // 🔄 GANTI StreamBuilder<QuerySnapshot> dengan StreamBuilder<List<EventModel>>
-    // dan panggil EventRepository
+    // 🔄 StreamBuilder dengan method Stream dari Repository
     return StreamBuilder<List<EventModel>>(
       stream: _eventRepo.getUserUploadedEventsStream(currentUserId),
       builder: (context, snapshot) {
@@ -358,7 +355,6 @@ class _UserEventList extends StatelessWidget {
           ));
         }
 
-        // Data yang diterima sudah berupa List<EventModel>
         final List<EventModel> userEvents = snapshot.data!;
 
         return ListView.builder(

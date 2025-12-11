@@ -4,7 +4,9 @@ import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../Models/event_model.dart';
 import '../Utils/app_colors.dart';
-import '../Utils/notification_service.dart';
+import '../Utils/notification_service.dart'; // Service Notifikasi Lokal
+import '../Utils/event_repository.dart'; // Repository untuk getEventsByIds
+import 'package:flutter/foundation.dart'; // Tambah ini jika debugPrint eror
 
 class NotificationPage extends StatefulWidget {
   const NotificationPage({super.key});
@@ -16,65 +18,84 @@ class NotificationPage extends StatefulWidget {
 class _NotificationPageState extends State<NotificationPage> {
   // State untuk pengaturan toggle notifikasi
   bool _isNotificationEnabled = true;
+  
+  final EventRepository _eventRepo = EventRepository.instance;
 
   @override
   void initState() {
     super.initState();
-    // 💡 INIT: Inisialisasi service notifikasi saat state dibuat
     NotificationService().initNotification();
   }
 
-  // 📝 Logika Inti: Menghitung dan Menjadwalkan Pengingat
+  // 📝 Logika Inti: Menghitung dan Menjadwalkan Pengingat Lokal
   void _scheduleNotificationsForEvent(EventModel event) {
-    // Jika notifikasi dinonaktifkan, hentikan proses penjadwalan
-    if (!_isNotificationEnabled) return;
+    if (!_isNotificationEnabled) {
+      NotificationService().cancelEventNotifications(event.id.hashCode);
+      return; 
+    }
 
-    // 1. 🔑 PERBAIKAN: Parsing String 'date' menjadi DateTime
     final DateTime eventDateTime;
     try {
-      // Data event.date Anda adalah: "DD/MM/YYYY HH:MM" (misalnya "10/12/2025 02:44")
-      // Gunakan DateFormat untuk mengkonversi string ini ke objek DateTime.
       eventDateTime = DateFormat("dd/MM/yyyy HH:mm").parse(event.date); 
     } catch (e) {
       debugPrint("Error parsing event date string for event ${event.id}: ${event.date}. Error: $e");
-      return; // Lewati jika format tanggal tidak valid
+      return; 
     }
     
     final DateTime now = DateTime.now();
 
-    // Jika event sudah berlalu (menggunakan waktu yang benar), jangan dijadwalkan
+    // Jika event sudah berlalu, jangan dijadwalkan
     if (eventDateTime.isBefore(now)) return;
 
-    // ID Base Notifikasi: Menggunakan hashcode dari ID event agar setiap event unik
     int idBase = event.id.hashCode;
 
-    // 1. Jadwal H-1 Hari
+    // 2. Jadwal H-1 Hari (Dibiarkan agar tidak ada error di file lain)
     DateTime scheduledDayBefore = eventDateTime.subtract(const Duration(days: 1));
     
-    // Hanya jadwalkan jika waktu mundur (H-1 Hari) masih di masa depan
     if (scheduledDayBefore.isAfter(now)) {
       NotificationService().scheduleEventNotification(
-        id: idBase + 1, // ID unik untuk pengingat H-1 Hari
+        id: idBase + 1, // ID unik
         title: "Pengingat Event: ${event.title}",
         body: "Event akan dimulai besok di ${event.location}. Persiapkan diri Anda!",
         scheduledTime: scheduledDayBefore,
       );
     }
 
-    // 2. Jadwal H-1 Jam
-    DateTime scheduledHourBefore = eventDateTime.subtract(const Duration(hours: 1));
+    // ----------------------------------------------------------------------
+    // 🎯 MODIFIKASI UNTUK PENGUJIAN H-1 JAM (DIGANTI MENJADI H-30 DETIK)
+    // ----------------------------------------------------------------------
     
-    // Hanya jadwalkan jika waktu mundur (H-1 Jam) masih di masa depan
+    // 🔥 PENGUJIAN: Jadwalkan notifikasi untuk 30 detik dari sekarang
+    DateTime scheduledQuickTest = now.add(const Duration(seconds: 30)); 
+    
+    // Periksa apakah notifikasi pengujian masih di masa depan
+    if (scheduledQuickTest.isAfter(now)) {
+      NotificationService().scheduleEventNotification(
+        id: idBase + 2, // Menggunakan ID yang sama dengan H-1 Jam
+        title: "⚡ TEST CEPAT H-1 JAM: ${event.title}",
+        body: "Event akan dimulai dalam 30 detik (Pengujian H-1 Jam).",
+        scheduledTime: scheduledQuickTest,
+      );
+      debugPrint("Notifikasi pengujian dijadwalkan pada: $scheduledQuickTest");
+    }
+    
+    // ----------------------------------------------------------------------
+    // KODE ASLI H-1 JAM (DINONAKTIFKAN SEMENTARA):
+    /* DateTime scheduledHourBefore = eventDateTime.subtract(const Duration(hours: 1));
+    
     if (scheduledHourBefore.isAfter(now)) {
       NotificationService().scheduleEventNotification(
-        id: idBase + 2, // ID unik untuk pengingat H-1 Jam
+        id: idBase + 2, // ID unik
         title: "Segera Dimulai: ${event.title}",
         body: "Event akan dimulai dalam 1 jam lagi.",
         scheduledTime: scheduledHourBefore,
       );
     }
+    */
+    // ----------------------------------------------------------------------
   }
 
+  // ... (Sisa kode _buildNotificationSetting dan _buildEventInboxList sama)
 
   @override
   Widget build(BuildContext context) {
@@ -82,7 +103,7 @@ class _NotificationPageState extends State<NotificationPage> {
       backgroundColor: AppColors.background,
       appBar: AppBar(
         title: const Text(
-          "Notifikasi & Event Inbox",
+          "Notifikasi & Pengingat Event",
           style: TextStyle(color: AppColors.textDark, fontWeight: FontWeight.bold),
         ),
         backgroundColor: Colors.white,
@@ -92,14 +113,11 @@ class _NotificationPageState extends State<NotificationPage> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          // 1. SETTING TOGGLE NOTIFIKASI
           _buildNotificationSetting(),
-          
           const SizedBox(height: 30),
           
-          // 2. JUDUL INBOX
           const Text(
-            "Event Terbaru (Inbox Semua Pengguna)",
+            "Event Terdaftar (Laci Pengingat Anda)",
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,
@@ -108,7 +126,6 @@ class _NotificationPageState extends State<NotificationPage> {
           ),
           const SizedBox(height: 15),
 
-          // 3. LIST INBOX DARI FIREBASE
           _buildEventInboxList(),
         ],
       ),
@@ -134,7 +151,7 @@ class _NotificationPageState extends State<NotificationPage> {
         children: [
           const Expanded(
             child: Text(
-              "Izinkan Notifikasi (Push Notification)",
+              "Izinkan Notifikasi (Jadwal Pengingat Lokal)",
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.w600,
@@ -149,9 +166,8 @@ class _NotificationPageState extends State<NotificationPage> {
                 _isNotificationEnabled = value;
               });
               
-              // 💡 AKSI: Jika notifikasi dimatikan, batalkan semua notifikasi pending
               if (!value) {
-                NotificationService().flutterLocalNotificationsPlugin.cancelAll();
+                NotificationService().cancelAllNotifications();
               }
               
               ScaffoldMessenger.of(context).showSnackBar(
@@ -169,126 +185,116 @@ class _NotificationPageState extends State<NotificationPage> {
     );
   }
 
-  // ✅ FUNGSI BARU: Mengambil data event dari Firestore
   Widget _buildEventInboxList() {
+    final userId = FirebaseAuth.instance.currentUser?.uid;
+
+    if (userId == null) {
+      return const Center(
+        child: Text("Anda harus login untuk melihat event yang terdaftar."),
+      );
+    }
+
+    // 1. STREAM REGISTRATIONS: Ambil semua dokumen pendaftaran milik user ini
     return StreamBuilder<QuerySnapshot>(
-      // Ambil semua event, diurutkan berdasarkan timestamp terbaru
       stream: FirebaseFirestore.instance
-          .collection('events')
-          .orderBy('timestamp', descending: true) 
+          .collection('registrations')
+          .where('userId', isEqualTo: userId)
           .snapshots(),
       
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: AppColors.primary),
-          );
+      builder: (context, registrationSnapshot) {
+        if (registrationSnapshot.connectionState == ConnectionState.waiting) {
+          return const Center(child: CircularProgressIndicator(color: AppColors.primary));
         }
 
-        if (snapshot.hasError) {
-          return Center(
-            child: Text(
-              "Error memuat event: ${snapshot.error}",
-              style: const TextStyle(color: Colors.red),
-            ),
-          );
+        if (registrationSnapshot.hasError) {
+          return Center(child: Text("Error memuat pendaftaran: ${registrationSnapshot.error}"));
         }
 
-        if (!snapshot.hasData || snapshot.data!.docs.isEmpty) {
+        // Ekstrak semua eventId yang didaftarkan
+        final List<String> registeredEventIds = registrationSnapshot.data!.docs
+            .map((doc) => doc.data() as Map<String, dynamic>)
+            .map((data) => data['eventId'] as String)
+            .toList();
+
+        // 2. STREAM EVENTS: Gunakan ID yang didapat untuk mengambil data EventModel lengkap
+        if (registeredEventIds.isEmpty) {
           return const Center(
             child: Padding(
               padding: EdgeInsets.only(top: 20),
-              child: Text(
-                "Belum ada event yang ditambahkan.",
-                style: TextStyle(color: AppColors.textDark),
-              ),
+              child: Text("Anda belum mendaftar ke event manapun."),
             ),
           );
         }
-
-        // Konversi data ke List<EventModel>
-        final List<EventModel> events = snapshot.data!.docs.map((doc) {
-          return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-        }).toList();
         
-        // 💡 PENJADWALAN NOTIFIKASI
-        // Jalankan logika penjadwalan untuk setiap event yang dimuat jika notif aktif
-        if (_isNotificationEnabled) {
-          for (var event in events) {
-            _scheduleNotificationsForEvent(event);
-          }
-        }
+        return StreamBuilder<List<EventModel>>(
+          stream: _eventRepo.getEventsByIds(registeredEventIds),
+          
+          builder: (context, eventSnapshot) {
+            if (eventSnapshot.connectionState == ConnectionState.waiting) {
+              return const Center(child: CircularProgressIndicator(color: AppColors.primary));
+            }
 
-        // Tampilkan daftar event
-        return ListView.builder(
-          shrinkWrap: true, // Penting karena berada di dalam ListView parent
-          physics: const NeverScrollableScrollPhysics(), // Nonaktifkan scroll
-          itemCount: events.length,
-          itemBuilder: (context, index) {
-            final EventModel event = events[index];
+            if (eventSnapshot.hasError) {
+              return Center(child: Text("Error memuat event: ${eventSnapshot.error}"));
+            }
+
+            final List<EventModel> registeredEvents = eventSnapshot.data ?? [];
             
-            // Cek apakah event ini diunggah oleh pengguna saat ini
-            final bool isMyEvent = event.userId == FirebaseAuth.instance.currentUser?.uid;
+            // 💡 PENJADWALAN NOTIFIKASI
+            if (_isNotificationEnabled) {
+              for (var event in registeredEvents) {
+                // PANGGIL LOGIKA YANG DIMODIFIKASI DI ATAS
+                _scheduleNotificationsForEvent(event); 
+              }
+            } else {
+              for (var event in registeredEvents) {
+                 NotificationService().cancelEventNotifications(event.id.hashCode);
+              }
+            }
 
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 12.0),
-              child: Container(
-                decoration: BoxDecoration(
-                  // Event yang baru di-add (asumsi belum 1 hari) bisa dianggap "belum dibaca"
-                  color: index < 3 ? AppColors.primary.withOpacity(0.05) : Colors.white,
-                  borderRadius: BorderRadius.circular(10),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.02),
-                      blurRadius: 2,
-                      offset: const Offset(0, 1),
-                    ),
-                  ],
-                ),
-                child: ListTile(
-                  leading: const Icon(Icons.calendar_today, color: AppColors.primary),
-                  title: Text(
-                    event.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textDark,
-                      fontSize: 14,
-                    ),
-                  ),
-                  subtitle: Text(
-                    "${event.location} - ${event.date}",
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      color: Colors.grey[600],
-                      fontSize: 12,
-                    ),
-                  ),
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+
+            // Tampilkan daftar event yang sudah didaftar
+            return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              itemCount: registeredEvents.length,
+              itemBuilder: (context, index) {
+                final EventModel event = registeredEvents[index];
+                
+                return Padding(
+                  padding: const EdgeInsets.only(bottom: 12.0),
+                  child: Container(
                     decoration: BoxDecoration(
-                      color: isMyEvent ? Colors.blue.withOpacity(0.1) : Colors.green.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(20),
+                      color: AppColors.primary.withOpacity(0.05),
+                      borderRadius: BorderRadius.circular(10),
+                      boxShadow: [
+                        BoxShadow(color: Colors.black.withOpacity(0.02), blurRadius: 2, offset: const Offset(0, 1)),
+                      ],
                     ),
-                    child: Text(
-                      isMyEvent ? "Event Saya" : "Baru",
-                      style: TextStyle(
-                        fontSize: 10,
-                        fontWeight: FontWeight.bold,
-                        color: isMyEvent ? Colors.blue : Colors.green,
+                    child: ListTile(
+                      leading: const Icon(Icons.alarm_on, color: AppColors.primary),
+                      title: Text(
+                        event.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: const TextStyle(fontWeight: FontWeight.bold, color: AppColors.textDark, fontSize: 14),
                       ),
+                      subtitle: Text(
+                        "Pengingat Aktif: ${event.date}",
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(color: Colors.grey[600], fontSize: 12),
+                      ),
+                      trailing: const Icon(Icons.notifications_active, color: AppColors.primary, size: 20),
+                      onTap: () {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text("Pengingat untuk: ${event.title}")),
+                        );
+                      },
                     ),
                   ),
-                  onTap: () {
-                    // TODO: Navigasi ke DetailPage event ini
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text("Lihat detail event: ${event.title}")),
-                    );
-                  },
-                ),
-              ),
+                );
+              },
             );
           },
         );

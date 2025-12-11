@@ -7,8 +7,7 @@ import 'notification_page.dart';
 import '../Utils/app_colors.dart';
 import 'ticket_page.dart';
 import 'favorite_page.dart';
-import '../Utils/event_repository.dart'; // <-- IMPORT BARU: Event Repository
-
+import '../Utils/event_repository.dart'; // Import Repository
 
 // --- Halaman Utama (Dashboard) ---
 class HomePage extends StatefulWidget {
@@ -21,8 +20,8 @@ class _HomePageState extends State<HomePage> {
   final TextEditingController _searchController = TextEditingController();
   String _searchQuery = '';
 
-  // 🆕 Instance Repository
-  final EventRepository _eventRepo = EventRepository(); 
+  // ✅ KOREKSI: Menggunakan getter statis 'instance' untuk mengakses Singleton
+  final EventRepository _eventRepo = EventRepository.instance; 
 
   @override
   void initState() {
@@ -108,9 +107,8 @@ class _HomePageState extends State<HomePage> {
 
   // Widget untuk StreamBuilder dan PageView (Diperbarui menggunakan Repository)
   Widget _buildEventCarousel() {
-    // 🔄 MENGGANTI StreamBuilder<QuerySnapshot> menjadi StreamBuilder<List<EventModel>>
-    // dan memanggil EventRepository
     return StreamBuilder<List<EventModel>>(
+      // ✅ Memanggil method Stream dari Repository
       stream: _eventRepo.getEventsStream(),
       
       builder: (context, snapshot) {
@@ -122,7 +120,6 @@ class _HomePageState extends State<HomePage> {
 
         if (snapshot.hasError) {
           return Center(
-            // Menampilkan error dari Repository
             child: Text(
               "Error: ${snapshot.error}",
               style: const TextStyle(color: Colors.red),
@@ -148,8 +145,8 @@ class _HomePageState extends State<HomePage> {
           final locationLower = event.location.toLowerCase();
           
           return _searchQuery.isEmpty || 
-                titleLower.contains(_searchQuery) || 
-                locationLower.contains(_searchQuery); 
+                 titleLower.contains(_searchQuery) || 
+                 locationLower.contains(_searchQuery); 
         }).toList();
 
         if (filteredEvents.isEmpty) {
@@ -201,7 +198,7 @@ class _HomePageState extends State<HomePage> {
 }
 
 // -------------------------------------------------------------
-//           WIDGET KOMPONEN (Tidak Berubah)
+//           WIDGET KOMPONEN
 // -------------------------------------------------------------
 
 // --- Kartu Event Responsif ---
@@ -264,7 +261,7 @@ class _EventCardResponsive extends StatelessWidget {
                           child: Column(
                             mainAxisAlignment: MainAxisAlignment.center,
                             children: [
-                              const Icon(Icons.shield_moon_outlined, color: Colors.grey, size: 30),
+                              const Icon(Icons.broken_image, color: Colors.grey, size: 30),
                               const SizedBox(height: 4),
                               Text(
                                 "Gagal Memuat",
@@ -425,7 +422,6 @@ class CustomFloatingNavBar extends StatelessWidget {
     required bool isActive, 
     required VoidCallback onTap
   }) {
-    // ... (Kode _buildNavIcon tetap sama)
     return InkWell(
       onTap: onTap,
       child: Column(
@@ -533,28 +529,28 @@ class CustomFloatingNavBar extends StatelessWidget {
                 _buildNavIcon(icon: Icons.home_filled, isActive: true, onTap: () {}),
                 
                 // FAVORIT (Favorite)
-_buildNavIcon(
-  icon: Icons.favorite_border, 
-  isActive: false, 
-  onTap: () {
-    Navigator.push(
-      context,
-      MaterialPageRoute(builder: (context) => const FavoritePage()),
-    );
-  }
-),
+                _buildNavIcon(
+                  icon: Icons.favorite_border, 
+                  isActive: false, 
+                  onTap: () {
+                    Navigator.push(
+                      context,
+                      MaterialPageRoute(builder: (context) => const FavoritePage()),
+                    );
+                  }
+                ),
 
 
                 // TIKET (Tickets)
                 _buildNavIcon(
                   icon: Icons.confirmation_number_outlined, 
                   isActive: false, 
-                    onTap: () {
-                        Navigator.push(
-                            context,
-                            MaterialPageRoute(builder: (context) => const TicketPage()),
-                        );
-                    }
+                  onTap: () {
+                      Navigator.push(
+                          context,
+                          MaterialPageRoute(builder: (context) => const TicketPage()),
+                      );
+                  }
                 ),
               ],
             ),

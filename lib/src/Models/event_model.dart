@@ -1,4 +1,4 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
+// File: lib/Models/event_model.dart
 
 class EventModel {
   final String id;
@@ -9,8 +9,7 @@ class EventModel {
   final String imagePath;
   final String userId;
   final String? registrationLink;
-  final Timestamp? timestamp; 
-  final double? eventLat; 
+  final double? eventLat;
   final double? eventLng;
 
   EventModel({
@@ -22,13 +21,38 @@ class EventModel {
     required this.imagePath,
     required this.userId,
     this.registrationLink,
-    this.timestamp,
     this.eventLat,
     this.eventLng,
   });
 
-  Map<String, dynamic> toMap() {
+  // ------------------------------------------------------------------
+  // ✅ FACTORY CONSTRUCTOR: Mengubah data Firestore menjadi objek Dart
+  // ------------------------------------------------------------------
+  // Menerima data Map (dari Firestore) dan ID dokumen.
+  factory EventModel.fromJson(Map<String, dynamic> json, String id) {
+    return EventModel(
+      id: id, // ID diambil dari doc.id Firestore
+      title: json['title'] as String,
+      date: json['date'] as String,
+      location: json['location'] as String,
+      description: json['description'] as String,
+      imagePath: json['imagePath'] as String,
+      userId: json['userId'] as String,
+      
+      // Penanganan nilai opsional/nullable
+      registrationLink: json['registrationLink'] as String?,
+      // Note: Firestore menyimpan angka sebagai num (number), konversi ke double
+      eventLat: (json['eventLat'] as num?)?.toDouble(),
+      eventLng: (json['eventLng'] as num?)?.toDouble(),
+    );
+  }
+
+  // ------------------------------------------------------------------
+  // 📝 MAPPER: Mengubah objek Dart menjadi Map (Untuk disimpan ke Firestore)
+  // ------------------------------------------------------------------
+  Map<String, dynamic> toJson() {
     return {
+      // Tidak perlu menyimpan ID di sini, Firestore akan membuatnya
       'title': title,
       'date': date,
       'location': location,
@@ -36,25 +60,8 @@ class EventModel {
       'imagePath': imagePath,
       'userId': userId,
       'registrationLink': registrationLink,
-      'timestamp': FieldValue.serverTimestamp(), 
       'eventLat': eventLat,
       'eventLng': eventLng,
     };
-  }
-
-  factory EventModel.fromMap(Map<String, dynamic> map, String documentId) {
-    return EventModel(
-      id: documentId,
-      title: map['title'] ?? '',
-      date: map['date'] ?? '',
-      location: map['location'] ?? '',
-      description: map['description'] ?? '',
-      imagePath: map['imagePath'] ?? '',
-      userId: map['userId'] ?? '',
-      registrationLink: map['registrationLink'] as String?,
-      timestamp: map['timestamp'] as Timestamp?,
-      eventLat: map['eventLat'] as double?,
-      eventLng: map['eventLng'] as double?,
-    );
   }
 }

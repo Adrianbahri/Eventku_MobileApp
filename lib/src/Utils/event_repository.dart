@@ -1,130 +1,188 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_functions/cloud_functions.dart';
 import '../Models/event_model.dart';
 
 class EventRepository {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final CollectionReference _eventsCollection = FirebaseFirestore.instance.collection('events');
-  final CollectionReference _registrationsCollection = FirebaseFirestore.instance.collection('registrations');
+  final FirebaseFunctions _functions = FirebaseFunctions.instance;
+  final String _eventsCollection = 'events';
+  final String _registrationsCollection = 'registrations';
+
+  // ===============================================
+  // 1. SINGLETON SETUP
+  // ===============================================
+  static final EventRepository _instance = EventRepository._internal();
   
-  // Ambil ID pengguna saat ini. Akan bernilai null jika user logout.
+  EventRepository._internal();
+
+  // Getter Statis yang dipanggil di file lain (Contoh: EventRepository.instance)
+  static EventRepository get instance => _instance; 
+  // ===============================================
+
   String? get currentUserId => FirebaseAuth.instance.currentUser?.uid;
+  final CollectionReference _events = FirebaseFirestore.instance.collection('events');
+  final CollectionReference _registrations = FirebaseFirestore.instance.collection('registrations');
 
-  // --- 1. OPERASI READ (Membaca Data Event) ---
 
-  // Mengambil SEMUA event sebagai Stream (untuk Dashboard)
+  // ===============================================
+  // II. CRUD EVENTS & DATA STREAMING
+  // ===============================================
+
+  // 1. Tambah Event Baru
+  Future<void> addEvent(EventModel event) async {
+    try {
+      final eventMap = event.toJson();
+      // Tambahkan timestamp saat event dibuat (Berguna untuk pengurutan)
+      eventMap['timestamp'] = FieldValue.serverTimestamp(); 
+      await _events.add(eventMap);
+    } catch (e) {
+      throw Exception("Gagal mempublikasikan event: ${e.toString()}");
+    }
+  }
+
+  // 2. Stream Semua Events (untuk HomePage)
   Stream<List<EventModel>> getEventsStream() {
-    return _eventsCollection
-        .orderBy('timestamp', descending: true)
+    return _events
+        .orderBy('date', descending: true)
         .snapshots()
         .map((snapshot) {
       return snapshot.docs.map((doc) {
-        return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+        return EventModel.fromJson(doc.data() as Map<String, dynamic>, doc.id);
       }).toList();
     });
   }
-
-  // Mengambil event berdasarkan daftar ID (untuk Favorite)
-  Future<List<EventModel>> getEventsByIds(List<String> eventIds) async {
-    if (eventIds.isEmpty) return [];
+  
+  // 3. Stream Events Berdasarkan Daftar ID (untuk FavoritePage dan NotificationPage)
+  Stream<List<EventModel>> getEventsByIds(List<String> eventIds) {
+    if (eventIds.isEmpty) return Stream.value([]);
     
-    // Batasan Firestore: whereIn hanya mendukung maksimum 10 ID per kueri.
-    final List<String> batchIds = eventIds.sublist(0, eventIds.length > 10 ? 10 : eventIds.length); 
+    // Batasan Firestore: whereIn hanya mendukung maksimum 10 ID.
+    if (eventIds.length > 10) {
+        eventIds = eventIds.sublist(0, 10);
+    }
 
-    final snapshot = await _eventsCollection
-      .where(FieldPath.documentId, whereIn: batchIds)
-      .get();
-      
-    return snapshot.docs.map((doc) {
-      return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-    }).toList();
+    return _events
+        .where(FieldPath.documentId, whereIn: eventIds)
+        .snapshots()
+        .map((snapshot) {
+      return snapshot.docs.map((doc) {
+        return EventModel.fromJson(doc.data() as Map<String, dynamic>, doc.id);
+      }).toList();
+    });
   }
   
-  // Mengambil event yang diunggah oleh pengguna saat ini (untuk Profil)
+  // 4. Stream Events yang Diupload Pengguna Saat Ini (untuk ProfilePage)
+  // ✅ METHOD YANG MENGATASI ERROR UNDEFINED
   Stream<List<EventModel>> getUserUploadedEventsStream(String userId) {
-    return _eventsCollection
-        .where('userId', isEqualTo: userId)
-        .orderBy('timestamp', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs.map((doc) {
-        return EventModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-      }).toList();
-    });
-  }
-  
-  // --- 2. OPERASI WRITE & DELETE EVENT ---
-
-  // Menambah event baru (untuk AddEventPage)
-  Future<void> addEvent(EventModel newEvent) async {
-    // Tambahkan timestamp saat event dibuat (Berguna untuk pengurutan)
-    final Map<String, dynamic> data = newEvent.toMap();
-    data['timestamp'] = FieldValue.serverTimestamp(); 
-    
-    await _eventsCollection.add(data);
+      return _events
+          .where('userId', isEqualTo: userId)
+          .orderBy('timestamp', descending: true)
+          .snapshots()
+          .map((snapshot) {
+        return snapshot.docs.map((doc) {
+          return EventModel.fromJson(doc.data() as Map<String, dynamic>, doc.id);
+        }).toList();
+      });
   }
 
-  // Menghapus event (untuk ProfilePage)
+  // 5. Delete Event
   Future<void> deleteEvent(String eventId) async {
-    // Note: Dalam aplikasi nyata, Anda juga perlu menghapus file poster dari Storage.
-    await _eventsCollection.doc(eventId).delete();
+    try {
+      await _events.doc(eventId).delete();
+    } catch (e) {
+      throw Exception("Gagal menghapus event: ${e.toString()}");
+    }
   }
+
+
+  // ===============================================
+  // III. GOOGLE MAPS FUNCTIONS CALLS
+  // ===============================================
   
-  // --- 3. OPERASI REGISTRASI (Tiket) ---
-  
-  // Mendaftar (Registrasi) event di Firestore
+  // 6. Mencari Lokasi (Autocomplete)
+  Future<List<dynamic>> searchPlaces(String query) async {
+    try {
+      final result = await _functions.httpsCallable('searchPlaces').call({'query': query});
+      return result.data ?? []; 
+    } on FirebaseFunctionsException {
+      throw Exception("Gagal memuat saran lokasi dari backend.");
+    } catch (e) {
+      throw Exception("Gagal terhubung ke Cloud Functions.");
+    }
+  }
+
+  // 7. Mengambil Detail Lokasi (Coordinates)
+  Future<Map<String, dynamic>> getPlaceDetails(String placeId) async {
+    try {
+      final result = await _functions.httpsCallable('getPlaceDetails').call({'placeId': placeId});
+      return result.data; 
+    } on FirebaseFunctionsException {
+      throw Exception("Gagal mengambil detail koordinat dari backend.");
+    } catch (e) {
+      throw Exception("Gagal terhubung ke Cloud Functions.");
+    }
+  }
+
+  // ===============================================
+  // IV. REGISTRATION & TICKET
+  // ===============================================
+
+  // 8. Cek Status Pendaftaran
+  Future<bool> checkRegistrationStatus(String eventId) async {
+    final userId = currentUserId;
+    if (userId == null) return false;
+    
+    final snapshot = await _registrations
+        .where('userId', isEqualTo: userId)
+        .where('eventId', isEqualTo: eventId)
+        .limit(1)
+        .get();
+        
+    return snapshot.docs.isNotEmpty;
+  }
+
+  // 9. Mendaftar Event
   Future<void> registerEvent(EventModel event) async {
-      if (currentUserId == null) {
-          throw Exception("User not logged in.");
-      }
-      
-      Map<String, dynamic> registrationData = {
-          'userId': currentUserId,
-          'eventId': event.id, 
-          'eventTitle': event.title,
-          'eventLocation': event.location, 
-          'registrationDate': FieldValue.serverTimestamp(),
-          'status': 'registered',
-      };
+    final userId = currentUserId;
+    if (userId == null) throw Exception("User not logged in.");
+    
+    final isRegistered = await checkRegistrationStatus(event.id);
+    if (isRegistered) return; 
 
-      await _registrationsCollection.add(registrationData);
+    try {
+      Map<String, dynamic> registrationData = {
+        'userId': userId,
+        'eventId': event.id, 
+        'eventTitle': event.title,
+        'eventLocation': event.location, 
+        'registrationDate': FieldValue.serverTimestamp(),
+        'status': 'registered',
+      };
+      
+      await _registrations.add(registrationData);
+    } catch (e) {
+      throw Exception("Pendaftaran gagal: ${e.toString()}");
+    }
   }
 
-  // Membatalkan Pendaftaran (Hapus dari koleksi 'registrations')
+  // 10. Batalkan Pendaftaran
   Future<void> cancelRegistration(String eventId) async {
-      if (currentUserId == null) {
-          throw Exception("User not logged in.");
-      }
-      
-      final querySnapshot = await _registrationsCollection
-          .where('userId', isEqualTo: currentUserId)
+    final userId = currentUserId;
+    if (userId == null) throw Exception("User not logged in.");
+
+    try {
+      final querySnapshot = await _registrations
+          .where('userId', isEqualTo: userId)
           .where('eventId', isEqualTo: eventId)
           .limit(1)
           .get();
 
       if (querySnapshot.docs.isNotEmpty) {
-          await querySnapshot.docs.first.reference.delete(); 
+        await querySnapshot.docs.first.reference.delete();
       }
-  }
-
-  // Cek Status Pendaftaran (untuk DetailPage)
-  Future<bool> checkRegistrationStatus(String eventId) async {
-      if (currentUserId == null) return false;
-      
-      final snapshot = await _registrationsCollection
-          .where('userId', isEqualTo: currentUserId)
-          .where('eventId', isEqualTo: eventId)
-          .limit(1)
-          .get();
-          
-      return snapshot.docs.isNotEmpty;
-  }
-  
-  // Mengambil Stream Tiket (untuk TicketPage)
-  Stream<QuerySnapshot> getRegisteredTicketsStream(String userId) {
-      return _registrationsCollection
-          .where('userId', isEqualTo: userId)
-          .orderBy('registrationDate', descending: true)
-          .snapshots();
+    } catch (e) {
+      throw Exception("Pembatalan pendaftaran gagal: ${e.toString()}");
+    }
   }
 }

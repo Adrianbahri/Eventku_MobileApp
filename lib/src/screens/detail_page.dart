@@ -17,7 +17,7 @@ class DetailPage extends StatefulWidget {
 
 class _DetailPageState extends State<DetailPage> {
   
-  final EventRepository _eventRepo = EventRepository(); 
+  final EventRepository _eventRepo = EventRepository.instance;
   
   bool _isRegistered = false;
   bool _isFavorite = false;

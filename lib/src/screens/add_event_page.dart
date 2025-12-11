@@ -37,7 +37,7 @@ class _AddEventPageState extends State<AddEventPage> {
   bool _isSubmitting = false;
 
   // 🆕 Instance Repository (Untuk CRUD Event)
-  final EventRepository _eventRepo = EventRepository();
+  final EventRepository _eventRepo = EventRepository.instance;
 
   // ✅ Dapatkan API Key dari Loader (Getter Singleton)
   final String _googleApiKey = ApiKeyLoader().googleMapsApiKey; 
