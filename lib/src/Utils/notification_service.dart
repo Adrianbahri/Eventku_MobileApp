@@ -1,10 +1,32 @@
-// File: lib/Utils/notification_service.dart
 import 'package:flutter/foundation.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:timezone/timezone.dart' as tz;
 import 'package:timezone/data/latest.dart' as tz;
+import 'package:shared_preferences/shared_preferences.dart'; 
+
+// -------------------------------------------------------------
+// HELPER: Menyimpan dan Mengambil Preferensi Jam Pengingat
+// -------------------------------------------------------------
+class NotificationPrefs {
+  static const String _keyReminderHours = 'reminder_hours';
+
+  // Menyimpan preferensi jam (misalnya, 1.0 = 1 jam, 0.5 = 30 menit)
+  static Future<void> saveReminderHours(double hours) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setDouble(_keyReminderHours, hours);
+  }
+
+  // Mengambil preferensi jam. Default adalah 1 jam (jika belum pernah disimpan)
+  static Future<double> getReminderHours() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getDouble(_keyReminderHours) ?? 1.0; 
+  }
+}
+// -------------------------------------------------------------
+
 
 class NotificationService {
+  // 1. SETUP SINGLETON
   static final NotificationService _instance = NotificationService._internal();
   factory NotificationService() => _instance;
   NotificationService._internal();
@@ -24,7 +46,7 @@ class NotificationService {
 
     await flutterLocalNotificationsPlugin.initialize(initializationSettings); 
     
-    // Meminta Izin Exact Alarm untuk Android 12+
+    // Meminta Izin Exact Alarm untuk Android 12+ (Wajib untuk penjadwalan akurat)
     final AndroidFlutterLocalNotificationsPlugin? androidImplementation =
         flutterLocalNotificationsPlugin.resolvePlatformSpecificImplementation<
             AndroidFlutterLocalNotificationsPlugin>();
@@ -37,7 +59,7 @@ class NotificationService {
     }
   }
 
-  /// 📝 Fungsi untuk menjadwalkan notifikasi pada waktu tertentu
+  /// 📝 Fungsi untuk menjadwalkan notifikasi pada waktu tertentu (SATU KALI)
   Future<void> scheduleEventNotification({
     required int id,
     required String title,
@@ -68,17 +90,12 @@ class NotificationService {
       // Menggunakan Exact Alarms
       androidScheduleMode: AndroidScheduleMode.exactAllowWhileIdle, 
       
-      // 🔥 KOREKSI 1 & 2: HAPUS parameter yang usang (uiLocalNotificationDateInterpretation)
-      // dan pastikan penggunaan enum yang benar (UILocalNotificationDateInterpretation.absoluteTime)
-      // Note: UILocalNotificationDateInterpretation diubah namanya menjadi DarwinNotificationDetails di versi terbaru,
-      // tetapi untuk meminimalisir error, kita akan menghapus parameter Android yang usang.
-      
-      // ✅ KOREKSI: Gunakan parameter yang benar untuk penjadwalan berulang/waktu tertentu
-      matchDateTimeComponents: DateTimeComponents.time, 
+      // ✅ KOREKSI: Parameter yang menyebabkan error 'Undefined name' dihapus.
+      // Notifikasi akan dipicu sekali pada waktu absolut.
     );
   }
   
-  /// Membatalkan notifikasi tunggal (Digunakan untuk cleanup).
+  /// Membatalkan notifikasi tunggal.
   Future<void> cancelNotification(int id) async {
     await flutterLocalNotificationsPlugin.cancel(id);
   }
@@ -87,12 +104,9 @@ class NotificationService {
   void cancelEventNotifications(int eventHashCode) {
     // ID notifikasi dijadwalkan dengan pola:
     // H-1 Hari = eventHashCode + 1
-    // H-1 Jam = eventHashCode + 2
+    // H-X Jam/Menit = eventHashCode + 2 (untuk pengingat kustom)
 
-    // Batalkan notifikasi H-1 Hari
     flutterLocalNotificationsPlugin.cancel(eventHashCode + 1);
-    
-    // Batalkan notifikasi H-1 Jam
     flutterLocalNotificationsPlugin.cancel(eventHashCode + 2);
     
     debugPrint('Cancelled scheduled notifications for event hash: $eventHashCode');
