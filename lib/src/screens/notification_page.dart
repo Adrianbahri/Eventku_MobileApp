@@ -121,7 +121,7 @@ class _NotificationPageState extends State<NotificationPage> {
           
           // 2. JUDUL INBOX
           const Text(
-            "Event Terdaftar (Laci Pengingat Anda)",
+            "Event Terdaftar ",
             style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.bold,

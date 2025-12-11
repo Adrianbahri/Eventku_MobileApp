@@ -1,5 +1,5 @@
 name: eventku
-description: "A new Flutter project."
+description: "A event kampus app."
 # The following line prevents the package from being accidentally published to
 # pub.dev using `flutter pub publish`. This is preferred for private packages.
 publish_to: 'none' # Remove this line if you wish to publish to pub.dev
@@ -54,6 +54,7 @@ dependencies:
   uuid: ^4.5.2
   http: ^1.6.0
   cloud_functions: ^6.0.4
+  flutter_launcher_icons: ^0.14.4
 
 dev_dependencies:
   flutter_test:
@@ -80,6 +81,7 @@ flutter:
   assets:
     - assets/
     - assets/image/
+    - assets/image/app_icon.png
 
   # To add assets to your application, add an assets section, like this:
   # assets:
@@ -111,3 +113,10 @@ flutter:
   #
   # For details regarding fonts from package dependencies,
   # see https://flutter.dev/to/font-from-package
+
+flutter_launcher_icons:
+  android: "launcher_icon" 
+  ios: true
+  # 🎯 PASTIKAN PATH INI COCOK DENGAN LOKASI FILE:
+  image_path: "assets/image/app_icon.png" 
+  min_sdk_android: 21

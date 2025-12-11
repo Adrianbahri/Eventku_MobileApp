@@ -1,12 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart';
 import 'package:add_2_calendar/add_2_calendar.dart'; 
 import '../Models/event_model.dart';
 import '../Utils/app_colors.dart';
 import '../screens/detail_page.dart'; 
 import 'dart:ui'; 
 
-// WIDGET UTAMA: Halaman Daftar Tiket - STATEFUL
+
 class TicketPage extends StatefulWidget {
   const TicketPage({super.key});
 
@@ -16,8 +17,9 @@ class TicketPage extends StatefulWidget {
 
 class _TicketPageState extends State<TicketPage> {
 
-  // ⚠️ NOTE: ID Pengguna ini harus diganti dengan FirebaseAuth.instance.currentUser?.uid
-  final String _currentUserId = 'user_id_example_123'; 
+  // ✅ KOREKSI KRUSIAL: Ambil ID Pengguna dari FirebaseAuth
+  // Jika pengguna belum login, nilainya akan menjadi null.
+  final String? _currentUserId = FirebaseAuth.instance.currentUser?.uid; 
   final Set<String> _selectedTicketIds = {}; 
   List<DocumentSnapshot>? _registeredTickets;
 
@@ -37,8 +39,8 @@ class _TicketPageState extends State<TicketPage> {
     final String title = eventData['eventTitle'] ?? 'Event Tiket';
     final String location = eventData['eventLocation'] ?? 'Lokasi Tidak Diketahui'; 
 
-    // ⚠️ NOTE: Logika waktu di sini tidak mengambil waktu event sebenarnya, 
-    // hanya menggunakan waktu sekarang sebagai placeholder.
+    // NOTE: Logika waktu di sini masih menggunakan waktu sekarang. 
+    // Idealnya, Anda harus mengambil waktu event dari EventModel yang terhubung.
     final DateTime startTime = DateTime.now().add(const Duration(hours: 1)); 
     final DateTime endTime = startTime.add(const Duration(hours: 2)); 
 
@@ -91,7 +93,7 @@ class _TicketPageState extends State<TicketPage> {
         .get();
 
       if (docSnapshot.exists) {
-        // ✅ KOREKSI ERROR: Ganti fromMap ke fromJson
+        // Menggunakan fromJson dari event_model.dart
         final EventModel event = EventModel.fromJson(docSnapshot.data()!, docSnapshot.id); 
         if (mounted) {
           Navigator.push(
@@ -271,10 +273,33 @@ class _TicketPageState extends State<TicketPage> {
 
   @override
   Widget build(BuildContext context) {
+    // ⚠️ Tampilkan pesan jika pengguna belum login
+    if (_currentUserId == null) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Tiket Saya'),
+          backgroundColor: AppColors.background,
+          foregroundColor: AppColors.textDark,
+          elevation: 0.5,
+        ),
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.lock, size: 80, color: Colors.grey[300]),
+              const SizedBox(height: 16),
+              const Text('Anda harus login untuk melihat tiket Anda.',
+              style: TextStyle(color: Colors.grey)),
+            ],
+          ),
+        ),
+      );
+    }
+    
     final CollectionReference registrationRef = 
     FirebaseFirestore.instance.collection('registrations');
 
-    // ⚠️ NOTE: Ganti _currentUserId dengan FirebaseAuth.instance.currentUser?.uid ?? 'INVALID_USER'
+    // ✅ KOREKSI: Menggunakan ID pengguna asli untuk kueri
     final Query ticketQuery = registrationRef
     .where('userId', isEqualTo: _currentUserId)
     .orderBy('registrationDate', descending: true);

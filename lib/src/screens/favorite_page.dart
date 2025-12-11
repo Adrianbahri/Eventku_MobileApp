@@ -1,10 +1,11 @@
 import 'package:flutter/material.dart';
-import '../Utils/event_repository.dart';
-import '../Models/event_model.dart';
-// import file FavoriteHelper Anda di sini
-// import '...' 
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../Utils/favorite_helper.dart'; // Asumsi: FavoriteHelper berada di Utils
 import '../Utils/app_colors.dart'; 
+import '../Models/event_model.dart'; // Asumsi: EventModel berada di Models
+import 'detail_page.dart'; // Asumsi: DetailPage berada di screens
 
+// WIDGET UTAMA: Halaman Event Favorit - STATEFUL (Menggunakan Future Loading)
 class FavoritePage extends StatefulWidget {
   const FavoritePage({super.key});
 
@@ -13,93 +14,237 @@ class FavoritePage extends StatefulWidget {
 }
 
 class _FavoritePageState extends State<FavoritePage> {
-  // ✅ KOREKSI 1: Inisialisasi Singleton yang benar
-  final EventRepository _eventRepo = EventRepository.instance; 
-  
-  // Asumsi: Instance FavoriteHelper Anda
-  // final FavoriteHelper _favHelper = FavoriteHelper.instance; 
-  
-  // State untuk menyimpan ID yang difavoritkan
-  List<String> _favoriteIds = [];
+  // Ubah tipe data untuk menyimpan model event lengkap
+  List<EventModel> favoriteEvents = []; 
+  bool isLoading = true;
 
   @override
   void initState() {
     super.initState();
-    _loadFavoriteIds();
+    // Memuat favorit setelah widget selesai dibangun
+    WidgetsBinding.instance.addPostFrameCallback((_) => loadFavorites());
   }
-  
-  // Asumsi: Fungsi untuk memuat ID favorit dari SharedPreferences/Storage
-  void _loadFavoriteIds() {
-    // ⚠️ Ganti dengan logika asinkron yang benar dari helper Anda
-    // Contoh:
-    // List<String> ids = await _favHelper.getFavoriteIds();
-    // setState(() { _favoriteIds = ids; });
+
+  // FUNGSI: Memuat ID Favorit dan Data Event terkait dari Firestore
+  Future<void> loadFavorites() async {
+    if (!mounted) return;
     
-    // Karena ini hanya contoh, kita akan mock data atau membiarkan kode utama di StreamBuilder.
-    // Jika FavoriteHelper().getFavoriteIds() mengembalikan Future, Anda harus menggunakan FutureBuilder di atas ini.
-    // Untuk menyederhanakan, kita akan asumsikan FavoriteHelper memberikan List<String> sync.
-    
-    // Contoh sederhana (ganti dengan helper Anda yang sebenarnya):
     setState(() {
-      _favoriteIds = ['id_event_1', 'id_event_2']; // GANTI DENGAN LOGIKA ASLI ANDA
+      isLoading = true;
     });
+
+    final favoriteIds = await FavoriteHelper.getFavorites();
+    List<EventModel> loadedEvents = [];
+
+    if (favoriteIds.isNotEmpty) {
+      try {
+        // Ambil data event dari Firestore menggunakan daftar ID
+        final snapshot = await FirebaseFirestore.instance
+            .collection('events')
+            .where(FieldPath.documentId, whereIn: favoriteIds)
+            .get();
+
+        loadedEvents = snapshot.docs.map((doc) {
+          // ✅ KOREKSI MAPPER: Menggunakan fromJson
+          return EventModel.fromJson(doc.data() as Map<String, dynamic>, doc.id);
+        }).toList();
+        
+      } catch (e) {
+        debugPrint("Error memuat event favorit: $e");
+      }
+    }
+
+    if (mounted) {
+      setState(() {
+        favoriteEvents = loadedEvents;
+        isLoading = false;
+      });
+    }
+  }
+
+  // FUNGSI: Menghapus Favorit dan Memuat Ulang Daftar
+  void _removeFavorite(String eventId) async {
+    if (!mounted) return;
+
+    await FavoriteHelper.toggleFavorite(eventId);
+    // Muat ulang daftar untuk refresh UI
+    await loadFavorites(); 
+
+    if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('🗑️ Event dihapus dari Favorit.'),
+          backgroundColor: Colors.grey,
+        ),
+      );
+    }
+  }
+
+  // WIDGET BARU: Item Daftar Event Favorit (Diselaraskan dengan Desain Tiket)
+  Widget _buildFavoriteItem(BuildContext context, EventModel event) {
+    return GestureDetector(
+      onTap: () {
+        Navigator.push(
+          context,
+          MaterialPageRoute(
+            builder: (context) => DetailPage(event: event),
+          ),
+        ).then((_) {
+          if (mounted) {
+            // Muat ulang setelah kembali untuk mencerminkan perubahan status favorit
+            loadFavorites(); 
+          }
+        });
+      },
+      child: Container(
+        margin: const EdgeInsets.only(left: 16, right: 16, top: 16),
+        decoration: BoxDecoration(
+          // PERBAIKAN: Background Putih bersih
+          color: AppColors.textLight,
+          // PERBAIKAN: Radius 15
+          borderRadius: BorderRadius.circular(15), 
+          // PERBAIKAN: Hapus Shadow
+          boxShadow: const [], 
+          // Tambahkan border tipis sebagai pemisah visual
+          border: Border.all(color: Colors.grey.shade300, width: 1), // Ganti AppColors.secondary menjadi warna abu-abu
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              // Judul Event
+              Text(
+                event.title,
+                style: const TextStyle(
+                  fontWeight: FontWeight.bold,
+                  fontSize: 18,
+                  color: AppColors.textDark,
+                ),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+
+              // Detail Waktu/Lokasi
+              Row(
+                children: [
+                  const Icon(Icons.calendar_month, color: AppColors.primary, size: 16),
+                  const SizedBox(width: 4),
+                  Text(event.date, style: const TextStyle(color: Colors.grey, fontSize: 14)),
+                ],
+              ),
+              const SizedBox(height: 4),
+              Row(
+                children: [
+                  const Icon(Icons.location_on, color: AppColors.primary, size: 16),
+                  const SizedBox(width: 4),
+                  Expanded(child: Text(event.location, style: const TextStyle(color: Colors.grey, fontSize: 14), overflow: TextOverflow.ellipsis)),
+                ],
+              ),
+              
+              const SizedBox(height: 10),
+              
+              // Pembatas (Garis Dashed)
+              CustomPaint(
+                painter: DashedBorderPainter(),
+                child: const SizedBox(height: 1, width: double.infinity), // Tambah width untuk mengisi
+              ),
+              
+              const SizedBox(height: 10),
+
+              // ID dan Tombol Hapus Favorit
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text('ID Event:', style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+                        Text(
+                          event.id.substring(0, 8), 
+                          style: const TextStyle(
+                            fontWeight: FontWeight.w600, 
+                            color: AppColors.textDark
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  // Tombol Hapus Favorit
+                  IconButton(
+                    // Menggunakan Ikon Hapus (Sampah)
+                    icon: const Icon(Icons.delete_forever, size: 30, color: AppColors.error), 
+                    onPressed: () => _removeFavorite(event.id), // Panggil fungsi hapus
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    if (_favoriteIds.isEmpty) {
-        // Tampilkan loading/placeholder jika ID belum dimuat
-        return const Center(child: Text("Memuat daftar favorit...")); 
-    }
-    
-    // ✅ KOREKSI 2: Menggunakan StreamBuilder untuk mendengarkan Stream
     return Scaffold(
-      appBar: AppBar(
-        title: const Text("Event Favorit Anda"),
+        // PERBAIKAN: Latar Belakang Aplikasi Putih
         backgroundColor: AppColors.background,
-        foregroundColor: AppColors.textDark,
-        elevation: 0,
-      ),
-      body: StreamBuilder<List<EventModel>>(
-        // 🎯 Input Stream: Panggil method repo yang mengembalikan Stream
-        stream: _eventRepo.getEventsByIds(_favoriteIds), 
-        
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(
-              child: CircularProgressIndicator(color: AppColors.primary),
-            );
-          }
+        appBar: AppBar(
+          title: const Text("Favorit Saya", style: TextStyle(fontWeight: FontWeight.bold)),
+          // PERBAIKAN: Header Putih
+          backgroundColor: AppColors.background,
+          foregroundColor: AppColors.textDark, // Teks Gelap
+          elevation: 0.5,
+        ),
 
-          if (snapshot.hasError) {
-            return Center(
-              child: Text("Error memuat event: ${snapshot.error}"),
-            );
-          }
-          
-          final List<EventModel> favoriteEvents = snapshot.data ?? [];
-
-          if (favoriteEvents.isEmpty) {
-            return const Center(
-              child: Text("Anda belum memiliki event favorit."),
-            );
-          }
-
-          // Tampilkan daftar event yang difavoritkan
-          return ListView.builder(
-            itemCount: favoriteEvents.length,
-            itemBuilder: (context, index) {
-              final EventModel event = favoriteEvents[index];
-              return ListTile(
-                leading: const Icon(Icons.favorite, color: AppColors.error),
-                title: Text(event.title),
-                subtitle: Text(event.location),
-                // TODO: Tambahkan navigasi ke DetailPage
-              );
-            },
-          );
-        },
-      ),
+        body: isLoading
+            ? const Center(child: CircularProgressIndicator(color: AppColors.primary))
+            : favoriteEvents.isEmpty
+                ? Center(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Icon(Icons.favorite_border,
+                            size: 90, color: Colors.grey[300]),
+                        const SizedBox(height: 16),
+                        const Text(
+                          "Belum ada event favorit.",
+                          style: TextStyle(color: Colors.grey, fontSize: 16),
+                        ),
+                      ],
+                    ),
+                  )
+                : ListView.builder(
+                    padding: const EdgeInsets.only(bottom: 16),
+                    itemCount: favoriteEvents.length,
+                    itemBuilder: (context, index) {
+                      final event = favoriteEvents[index];
+                      return _buildFavoriteItem(context, event);
+                    },
+                  ),
     );
   }
+}
+
+// Custom Painter untuk Garis Putus-putus (Dashed Border)
+// Pastikan kode DashedBorderPainter ini ada di file yang sama atau diimpor
+class DashedBorderPainter extends CustomPainter {
+  @override
+  void paint(Canvas canvas, Size size) {
+    double dashWidth = 8, dashSpace = 4, startX = 0;
+    final paint = Paint()
+      ..color = Colors.grey.shade300
+      ..strokeWidth = 1;
+
+    while (startX < size.width) {
+      canvas.drawLine(Offset(startX, 0), Offset(startX + dashWidth, 0), paint);
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(CustomPainter oldDelegate) => false;
 }

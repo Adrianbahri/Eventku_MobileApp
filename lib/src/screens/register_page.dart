@@ -3,6 +3,10 @@ import 'package:flutter/material.dart';
 import '../Utils/app_colors.dart';
 import '../Widget/custom_form_field.dart';
 
+// ⚠️ PENTING: Ganti path ini sesuai lokasi LoginPage Anda
+import 'login_page.dart'; 
+
+
 // ===========================================
 // 1. HALAMAN UTAMA REGISTER (StatelessWidget)
 // ===========================================
@@ -55,7 +59,7 @@ class RegisterPage extends StatelessWidget {
                       
                       const SizedBox(height: 40),
                       
-                      // ✅ FOOTER NAVIGASI KE LOGIN
+                      // FOOTER NAVIGASI KE LOGIN
                       const _Footer(),
                     ],
                   ),
@@ -117,20 +121,23 @@ class _RegistFormState extends State<_RegistForm> {
       // 2. Simpan "Full Name"
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
       
-      // 3. KIRIM EMAIL VERIFIKASI (Disarankan)
-      // Note: Anda harus mengaktifkan Email Verification di Firebase Console
+      // 3. KIRIM EMAIL VERIFIKASI
       await userCredential.user?.sendEmailVerification(); 
       
-      // 4. Jika sukses, beri notifikasi dan kembali ke Login
+      // 4. Jika sukses, beri notifikasi dan GANTI ke Login Page
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
-            content: Text('Registration Success! Please check your email to verify.'),
+            content: Text('Registration Success! Please check your email to verify and then login.'),
             backgroundColor: AppColors.success,
+            duration: Duration(seconds: 4),
           ),
         );
-        // Kembali ke halaman Login (menggunakan pop, karena Register dipush dari Login)
-        Navigator.pop(context); 
+        // ✅ KOREKSI: Menggunakan pushReplacement untuk navigasi yang bersih
+        Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const LoginPage()),
+        );
       }
     } on FirebaseAuthException catch (e) {
       String message;
@@ -238,8 +245,11 @@ class _Footer extends StatelessWidget {
         const Text("Do you have an account? ", style: TextStyle(color: Colors.grey)),
         GestureDetector(
           onTap: () {
-            // Menggunakan pop untuk kembali ke halaman Login
-            Navigator.pop(context);
+            // ✅ KOREKSI: Menggunakan pushReplacement ke LoginPage
+            Navigator.pushReplacement(
+                context,
+                MaterialPageRoute(builder: (context) => const LoginPage()),
+            );
           },
           child: const Text(
             "Login",

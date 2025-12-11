@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../Models/event_model.dart';
 import '../Utils/app_colors.dart';
-import '../Utils/event_repository.dart'; // Event Repository
-import '../Utils/favorite_helper.dart'; // Helper untuk status favorit
+import '../Utils/event_repository.dart'; 
+import '../Utils/favorite_helper.dart'; 
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 
 class DetailPage extends StatefulWidget {
@@ -75,19 +75,22 @@ class _DetailPageState extends State<DetailPage> {
 
     setState(() => _isLoading = true);
     try {
-      // 1. Panggil Repository untuk menyimpan pendaftaran tiket
+      // 1. Panggil Repository untuk menyimpan pendaftaran tiket di Firestore
       await _eventRepo.registerEvent(widget.event);
 
-      // 2. Luncurkan Link Pendaftaran Eksternal (Perbaikan Null Safety)
+      // 2. Luncurkan Link Pendaftaran Eksternal
       final registrationLink = widget.event.registrationLink;
       
-      // ✅ PERBAIKAN NULL SAFETY: Cek null dan cek apakah string tersebut tidak kosong
+      // ✅ LOGIKA URL_LAUNCHER ANDA SUDAH BENAR DI SINI
       if (registrationLink != null && registrationLink.isNotEmpty) {
+        // Gunakan Uri.parse() untuk mengurai string URL
         final url = Uri.parse(registrationLink.trim()); 
         
         if (await canLaunchUrl(url)) {
+          // Buka di aplikasi eksternal (browser)
           await launchUrl(url, mode: LaunchMode.externalApplication);
         } else {
+          // Hanya log error jika gagal membuka URL
           debugPrint("Could not launch registration link: $registrationLink");
         }
       }
@@ -150,9 +153,10 @@ class _DetailPageState extends State<DetailPage> {
     }
   }
 
+  // FUNGSI: Membuka Google Maps Native
   Future<void> _openGoogleMaps(double lat, double lng, String label) async {
       // Membangun URL geo: yang akan membuka aplikasi peta native (Google Maps/Apple Maps)
-      final geoUrl = Uri.parse('geo:$lat,$lng?q=$lat,$lng($label)'); 
+      final geoUrl = Uri.parse('geo:$lat,$lng?q=$lat,$lng(${Uri.encodeComponent(label)})'); // ✅ Menggunakan Uri.encodeComponent
 
       if (await canLaunchUrl(geoUrl)) {
         await launchUrl(geoUrl);
@@ -163,7 +167,8 @@ class _DetailPageState extends State<DetailPage> {
           );
         }
       }
-    }
+  }
+
   // FUNGSI: Logic Tombol Bawah
   void _handleActionButton() {
     if (_isRegistered) {
@@ -374,7 +379,7 @@ class _DetailPageState extends State<DetailPage> {
                 const SizedBox(height: 40),
                 
                 // Peta (Opsional) 
-                if (widget.event.eventLat != null)
+                if (widget.event.eventLat != null && widget.event.eventLng != null)
                   _buildMapPreview(),
               ],
             ),
@@ -420,16 +425,12 @@ class _DetailPageState extends State<DetailPage> {
       ],
     );
   }
-// File: detail_page.dart (Hanya _buildMapPreview yang dimodifikasi)
 
-// Pastikan Anda sudah mengimplementasikan _openGoogleMaps(lat, lng, label)
-// dan memiliki import GoogleMapsFlutter di atas.
-
+  // WIDGET: Map Preview
   Widget _buildMapPreview() {
     final bool hasCoordinates = widget.event.eventLat != null && widget.event.eventLng != null;
 
     if (!hasCoordinates) {
-      // Mengembalikan placeholder jika koordinat tidak ada
       return Padding(
         padding: const EdgeInsets.symmetric(vertical: 10),
         child: Text(
@@ -454,7 +455,7 @@ class _DetailPageState extends State<DetailPage> {
         ),
         const SizedBox(height: 10),
         
-        // Peta Mini Interaktif (diambil dari _buildLocationWidget)
+        // Peta Mini Interaktif
         GestureDetector(
           // Panggil fungsi untuk membuka Google Maps Native saat di-tap
           onTap: () => _openGoogleMaps(eventLocation.latitude, eventLocation.longitude, widget.event.location),
@@ -507,6 +508,7 @@ class _DetailPageState extends State<DetailPage> {
       ],
     );
   }
+
   Widget _buildBottomActionButton(String text, Color color, IconData icon) {
     return Positioned(
       bottom: 0,
