@@ -1,9 +1,10 @@
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
-import 'package:google_sign_in/google_sign_in.dart';
-import 'dart:async';
+import 'dart:async'; // Dihapus: StreamSubscription
+// Hapus: import 'package:google_sign_in/google_sign_in.dart';
 import '../Utils/app_colors.dart';
 import '../Widget/custom_form_field.dart';
+
 // ===========================================
 // 1. HALAMAN UTAMA LOGIN (StatelessWidget)
 // ===========================================
@@ -30,10 +31,8 @@ class LoginPage extends StatelessWidget {
                       // LOGO
                       Center(
                         child:
-                          Image.asset(
-                            'assets/image/animLogo.gif', // Pastikan path ini benar
-                            width: 300,
-                          ),
+                          // Pastikan path ini benar
+                          Image.asset('assets/image/animLogo.gif', width: 300), 
                       ),
                       const SizedBox(height: 40),
 
@@ -53,13 +52,8 @@ class LoginPage extends StatelessWidget {
                       const _LoginForm(),
                       const SizedBox(height: 30),
 
-                      // SOCIAL LOGIN
-                      const _SocialLogin(),
-
-                      const SizedBox(height: 40),
-
-                      // FOOTER: NAVIGASI KE REGISTER
-                      // const _Footer(),
+                      // FOOTER: NAVIGASI KE REGISTER (MENGGANTIKAN SOCIAL LOGIN)
+                      const _Footer(),
                     ],
                   ),
                 ),
@@ -88,6 +82,8 @@ class _LoginFormState extends State<_LoginForm> {
   bool _isLoading = false;
 
   Future<void> _handleLogin() async {
+    if (!mounted) return;
+
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Please fill in email and password'), backgroundColor: AppColors.error),
@@ -106,7 +102,8 @@ class _LoginFormState extends State<_LoginForm> {
       );
 
       if (mounted) {
-        Navigator.pushReplacementNamed(context, '/dashboard');
+        // Ganti dengan nama route dashboard Anda yang benar jika berbeda
+        Navigator.pushReplacementNamed(context, '/dashboard'); 
       }
     } on FirebaseAuthException catch (e) {
       String message;
@@ -137,6 +134,8 @@ class _LoginFormState extends State<_LoginForm> {
   }
 
   Future<void> _sendPasswordResetLink() async {
+    if (!mounted) return;
+    
     final email = _emailController.text.trim();
 
     if (email.isEmpty) {
@@ -199,7 +198,7 @@ class _LoginFormState extends State<_LoginForm> {
         CustomFormField(
           label: 'Password',
           controller: _passwordController,
-          isPassword: true, // WAJIB: Tentukan ini password
+          isPassword: true, 
           hintText: 'Password',
         ),
         
@@ -238,145 +237,41 @@ class _LoginFormState extends State<_LoginForm> {
 }
 
 // ===========================================
-// 3. WIDGET PENDUKUNG: Social Login
+// 3. WIDGET PENDUKUNG: Footer Navigasi (Register)
 // ===========================================
-class _SocialLogin extends StatefulWidget {
-  const _SocialLogin();
-
-  @override
-  State<_SocialLogin> createState() => _SocialLoginState();
-}
-
-class _SocialLoginState extends State<_SocialLogin> {
-  final GoogleSignIn _googleSignIn = GoogleSignIn.instance;
-  StreamSubscription<GoogleSignInAuthenticationEvent>? _authStream;
-
-  @override
-  void initState() {
-    super.initState();
-    // Menggunakan stream untuk mendengarkan perubahan autentikasi Google
-    _authStream = _googleSignIn.authenticationEvents.listen(
-      _handleGoogleAuthEvent,
-      onError: (error) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Google Sign In Error: $error'), backgroundColor: AppColors.error),
-          );
-        }
-      },
-    );
-  }
-
-  @override
-  void dispose() {
-    _authStream?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _handleGoogleAuthEvent(GoogleSignInAuthenticationEvent event) async {
-    if (event case GoogleSignInAuthenticationEventSignIn(user: final user)) {
-      try {
-        final GoogleSignInAuthentication googleAuth = user.authentication;
-
-        // Membuat credential tanpa accessToken
-        final AuthCredential credential = GoogleAuthProvider.credential(
-          idToken: googleAuth.idToken,
-        );
-
-        await FirebaseAuth.instance.signInWithCredential(credential);
-
-        if (mounted) {
-          Navigator.pushReplacementNamed(context, '/dashboard');
-        }
-      } on FirebaseAuthException catch (e) {
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Firebase Error: ${e.message}'), backgroundColor: AppColors.error),
-          );
-          _googleSignIn.signOut();
-        }
-      }
-    }
-  }
-
-  Future<void> _triggerSignIn() async {
-    try {
-      await _googleSignIn.authenticate();
-    } catch (error) {
-      // Handle error jika popup gagal dibuka
-      debugPrint("Gagal membuka popup Google: $error");
-    }
-  }
+// Menggantikan _SocialLogin dan _Footer lama
+class _Footer extends StatelessWidget {
+  const _Footer();
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        const Text('Or continue with', style: TextStyle(color: Colors.grey)),
-        const SizedBox(height: 20),
-
-        GestureDetector(
-          onTap: _triggerSignIn,
-          child: Container(
-            padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 24),
-            decoration: BoxDecoration(
-              color: AppColors.textLight,
-              borderRadius: BorderRadius.circular(30),
-              border: Border.all(color: Colors.grey.shade300, width: 1.5),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.grey.withOpacity(0.1),
-                  blurRadius: 5,
-                  offset: const Offset(0, 2),
-                )
-              ],
+        Container(
+          height: 1.0, 
+          width: double.infinity,
+          color: Colors.grey.shade300,
+        ),
+        const SizedBox(height: 40),
+        
+        // Tautan Register
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Text("Don't have an account? ", style: TextStyle(color: Colors.grey)),
+            GestureDetector(
+              onTap: () {
+                // Ganti dengan nama route register Anda yang benar jika berbeda
+                Navigator.pushReplacementNamed(context, '/register'); 
+              },
+              child: const Text(
+                "Register",
+                style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+              ),
             ),
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                // Pastikan path image ini benar
-                Image.asset('assets/image/Google_Favicon_2025.png', width: 24, height: 24),
-                const SizedBox(width: 12),
-                const Text(
-                  'Google',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w600,
-                    color: AppColors.textDark,
-                  ),
-                )
-              ],
-            ),
-          ),
-        )
+          ],
+        ),
       ],
     );
   }
 }
-
-// ===========================================
-// 4. WIDGET PENDUKUNG: Footer Navigasi
-// ===========================================
-// class _Footer extends StatelessWidget {
-//   const _Footer();
-
-//   @override
-//   Widget build(BuildContext context) {
-//     return Row(
-//       mainAxisAlignment: MainAxisAlignment.center,
-//       children: [
-//         const Text("Don't have an account? ", style: TextStyle(color: Colors.grey)),
-//         GestureDetector(
-//           onTap: () {
-//             Navigator.pushNamed(context, '/register');
-//           },
-//           child: const Text(
-//             "Register",
-//             style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }

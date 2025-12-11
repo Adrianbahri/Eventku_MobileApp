@@ -26,11 +26,13 @@ class RegisterPage extends StatelessWidget {
                     mainAxisAlignment: MainAxisAlignment.center,
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      // LOGO
-                      Image.asset(
-                        'assets/image/animLogo.gif',
-                        width: 200,
-                        height: 100,
+                      // LOGO (Disesuaikan ukurannya agar tidak terlalu besar)
+                      Center(
+                        child: Image.asset(
+                          'assets/image/animLogo.gif',
+                          width: 200,
+                          height: 100,
+                        ),
                       ),
                       
                       const SizedBox(height: 40),
@@ -53,8 +55,8 @@ class RegisterPage extends StatelessWidget {
                       
                       const SizedBox(height: 40),
                       
-                      // FOOTER NAVIGASI KE LOGIN
-                      // const _Footer(),
+                      // ✅ FOOTER NAVIGASI KE LOGIN
+                      const _Footer(),
                     ],
                   ),
                 ),
@@ -86,6 +88,8 @@ class _RegistFormState extends State<_RegistForm> {
   bool _isLoading = false;
 
   Future<void> _handleRegister() async {
+    if (!mounted) return;
+
     if (_nameController.text.isEmpty || 
         _emailController.text.isEmpty || 
         _passwordController.text.isEmpty) {
@@ -113,7 +117,8 @@ class _RegistFormState extends State<_RegistForm> {
       // 2. Simpan "Full Name"
       await userCredential.user?.updateDisplayName(_nameController.text.trim());
       
-      // 3. KIRIM EMAIL VERIFIKASI
+      // 3. KIRIM EMAIL VERIFIKASI (Disarankan)
+      // Note: Anda harus mengaktifkan Email Verification di Firebase Console
       await userCredential.user?.sendEmailVerification(); 
       
       // 4. Jika sukses, beri notifikasi dan kembali ke Login
@@ -124,7 +129,8 @@ class _RegistFormState extends State<_RegistForm> {
             backgroundColor: AppColors.success,
           ),
         );
-        Navigator.pop(context); // Kembali ke halaman Login
+        // Kembali ke halaman Login (menggunakan pop, karena Register dipush dari Login)
+        Navigator.pop(context); 
       }
     } on FirebaseAuthException catch (e) {
       String message;
@@ -190,7 +196,7 @@ class _RegistFormState extends State<_RegistForm> {
         CustomFormField(
           label: 'Password',
           controller: _passwordController,
-          isPassword: true, // Mengaktifkan fitur password di CustomFormField
+          isPassword: true,
           hintText: 'Password', 
         ),
         
@@ -221,29 +227,26 @@ class _RegistFormState extends State<_RegistForm> {
   }
 }
 
-// ===========================================
-// 3. WIDGET PENDUKUNG: Footer Navigasi
-// ===========================================
-// class _Footer extends StatelessWidget {
-//   const _Footer();
+class _Footer extends StatelessWidget {
+  const _Footer();
 
-//   @override
-//   Widget build(BuildContext context) {
-//     return Row(
-//       mainAxisAlignment: MainAxisAlignment.center,
-//       children: [
-//         const Text("Do you have an account? ", style: TextStyle(color: Colors.grey)),
-//         GestureDetector(
-//           onTap: () {
-//             // Menggunakan pop untuk kembali ke halaman Login
-//             Navigator.pop(context);
-//           },
-//           child: const Text(
-//             "Login",
-//             style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
-//           ),
-//         ),
-//       ],
-//     );
-//   }
-// }
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        const Text("Do you have an account? ", style: TextStyle(color: Colors.grey)),
+        GestureDetector(
+          onTap: () {
+            // Menggunakan pop untuk kembali ke halaman Login
+            Navigator.pop(context);
+          },
+          child: const Text(
+            "Login",
+            style: TextStyle(color: AppColors.primary, fontWeight: FontWeight.bold),
+          ),
+        ),
+      ],
+    );
+  }
+}
